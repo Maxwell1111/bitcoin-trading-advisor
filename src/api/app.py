@@ -3,12 +3,14 @@ Bitcoin Trading Advisor FastAPI Application
 """
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import sys
 from pathlib import Path
+import os
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -62,17 +64,24 @@ class RecommendationResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
-    return {
-        "message": "Bitcoin Portfolio Advisor API",
-        "version": "1.0.0",
-        "endpoints": {
-            "health": "/health",
-            "docs": "/docs",
-            "recommendation": "/api/recommendation",
-            "price": "/api/price"
+    """Serve the web interface"""
+    static_dir = Path(__file__).parent.parent.parent / "static"
+    index_file = static_dir / "index.html"
+
+    if index_file.exists():
+        return FileResponse(index_file)
+    else:
+        # Fallback to API info if static files don't exist
+        return {
+            "message": "Bitcoin Portfolio Advisor API",
+            "version": "1.0.0",
+            "endpoints": {
+                "health": "/health",
+                "docs": "/docs",
+                "recommendation": "/api/recommendation",
+                "price": "/api/price"
+            }
         }
-    }
 
 
 @app.get("/health")
