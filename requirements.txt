@@ -11,9 +11,8 @@ python-dotenv>=1.0.0
 yfinance>=0.2.36
 ccxt>=4.2.0  # Cryptocurrency exchange trading library
 
-# Technical analysis
-pandas-ta
-# TA-Lib>=0.4.28  # Optional - commented out for easier deployment
+# Technical analysis - RSI and MACD implemented in src/analysis/technical.py
+# No external libraries needed - we calculate indicators from scratch using pandas/numpy
 
 # Sentiment analysis
 vaderSentiment>=3.3.2
@@ -32,9 +31,9 @@ PyYAML>=6.0.1
 # jupyter>=1.0.0
 # ipykernel>=6.25.0
 
-# Testing
-pytest>=7.4.0
-pytest-cov>=4.1.0
+# Testing - commented out for lighter deployment
+# pytest>=7.4.0
+# pytest-cov>=4.1.0
 
 # Utilities
 tqdm>=4.66.0  # Progress bars
