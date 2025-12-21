@@ -21,6 +21,7 @@ from src.analysis.technical import TechnicalAnalyzer
 from src.analysis.sentiment import SentimentAnalyzer
 from src.engine.recommendation import RecommendationEngine
 from src.utils.config import get_config
+from src.utils.cache import get_cache
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -98,20 +99,51 @@ async def api_health() -> HealthResponse:
 
 @app.get("/api/price")
 async def get_current_price():
-    """Get current Bitcoin price"""
-    try:
-        fetcher = PriceFetcher(provider="coingecko")
-        price = fetcher.get_current_price()
+    """Get current Bitcoin price with caching and fallback"""
+    cache = get_cache()
+
+    # Check cache first (60 second TTL)
+    cached_price = cache.get("btc_price")
+    if cached_price is not None:
         return {
-            "price": price,
+            "price": cached_price,
             "currency": "USD",
-            "symbol": "BTC"
+            "symbol": "BTC",
+            "cached": True
         }
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
+
+    # Try multiple providers in order
+    providers = ["yfinance", "coingecko", "binance"]
+    last_error = None
+
+    for provider in providers:
+        try:
+            fetcher = PriceFetcher(provider=provider)
+            price = fetcher.get_current_price()
+
+            # Cache for 60 seconds
+            cache.set("btc_price", price, ttl=60)
+
+            return {
+                "price": price,
+                "currency": "USD",
+                "symbol": "BTC",
+                "provider": provider,
+                "cached": False
+            }
+        except Exception as e:
+            last_error = str(e)
+            continue
+
+    # All providers failed
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "Unable to fetch Bitcoin price from any provider",
+            "last_error": last_error,
+            "tried_providers": providers
+        }
+    )
 
 
 @app.post("/api/recommendation")
@@ -126,8 +158,8 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
     - use_mock: Use mock data for testing (default: false)
     """
     try:
-        # Fetch price data
-        price_fetcher = PriceFetcher(provider="coingecko")
+        # Fetch price data - use yfinance to avoid CoinGecko rate limits
+        price_fetcher = PriceFetcher(provider="yfinance")
         current_price = price_fetcher.get_current_price()
         historical_data = price_fetcher.fetch_historical_data(days=request.days)
 
@@ -178,7 +210,7 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
 async def get_technical_analysis(days: int = 100):
     """Get only technical analysis"""
     try:
-        price_fetcher = PriceFetcher(provider="coingecko")
+        price_fetcher = PriceFetcher(provider="yfinance")
         current_price = price_fetcher.get_current_price()
         historical_data = price_fetcher.fetch_historical_data(days=days)
 
