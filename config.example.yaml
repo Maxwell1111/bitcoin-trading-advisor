@@ -1,0 +1,83 @@
+# Bitcoin Portfolio Advisor Configuration
+
+# API Keys (Copy this file to config.yaml and add your keys)
+api_keys:
+  newsapi: "YOUR_NEWSAPI_KEY_HERE"  # Get from https://newsapi.org/
+  cryptocontrol: ""  # Optional: https://cryptocontrol.io/
+
+# Data sources
+data_sources:
+  price:
+    provider: "coingecko"  # Options: coingecko, binance, yfinance
+    symbol: "bitcoin"
+    vs_currency: "usd"
+
+  news:
+    provider: "newsapi"  # Options: newsapi, cryptocontrol, cryptopanic
+    keywords: ["bitcoin", "btc", "cryptocurrency"]
+    max_articles: 50
+    lookback_days: 7
+
+# Technical Analysis Settings
+technical_analysis:
+  rsi:
+    period: 14  # Standard RSI period
+    overbought: 70
+    oversold: 30
+
+  macd:
+    fast_period: 12
+    slow_period: 26
+    signal_period: 9
+
+  timeframe: "1d"  # Options: 1h, 4h, 1d, 1w
+  lookback_periods: 100  # Number of historical data points
+
+# Sentiment Analysis Settings
+sentiment_analysis:
+  analyzer: "vader"  # Options: vader, textblob
+  threshold:
+    positive: 0.05
+    negative: -0.05
+  weight: 0.4  # Weight in final recommendation (0-1)
+
+# Recommendation Engine
+recommendation:
+  technical_weight: 0.6  # Weight for technical signals (0-1)
+  sentiment_weight: 0.4  # Weight for sentiment signals (0-1)
+
+  thresholds:
+    strong_buy: 0.7
+    buy: 0.3
+    hold: -0.3
+    sell: -0.7
+
+  confidence_levels:
+    high: 0.8
+    medium: 0.5
+    low: 0.3
+
+# Data Storage
+storage:
+  cache_enabled: true
+  cache_duration_hours: 1
+  save_history: true
+  data_directory: "./data"
+
+# Visualization
+visualization:
+  show_charts: true
+  save_charts: true
+  chart_directory: "./charts"
+
+# Logging
+logging:
+  level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
+  file: "advisor.log"
+  console_output: true
+
+# Schedule (for automated runs)
+schedule:
+  enabled: false
+  frequency: "daily"  # Options: hourly, daily, weekly
+  time: "09:00"  # Time to run (24-hour format)
