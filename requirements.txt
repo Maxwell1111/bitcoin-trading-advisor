@@ -12,25 +12,25 @@ yfinance>=0.2.36
 ccxt>=4.2.0  # Cryptocurrency exchange trading library
 
 # Technical analysis
-pandas-ta>=0.3.14b
-TA-Lib>=0.4.28  # May need manual installation on some systems
+pandas-ta>=0.3.14b0
+# TA-Lib>=0.4.28  # Optional - commented out for easier deployment
 
 # Sentiment analysis
 vaderSentiment>=3.3.2
 textblob>=0.17.1
 nltk>=3.8.1
 
-# Data visualization
-matplotlib>=3.7.0
-plotly>=5.18.0
-seaborn>=0.13.0
+# Data visualization - optional, commented out for faster deployment
+# matplotlib>=3.7.0
+# plotly>=5.18.0
+# seaborn>=0.13.0
 
 # Configuration
 PyYAML>=6.0.1
 
-# Jupyter (optional, for notebooks)
-jupyter>=1.0.0
-ipykernel>=6.25.0
+# Jupyter (optional, for notebooks) - commented out for lighter deployment
+# jupyter>=1.0.0
+# ipykernel>=6.25.0
 
 # Testing
 pytest>=7.4.0
