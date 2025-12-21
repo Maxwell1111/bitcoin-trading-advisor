@@ -12,7 +12,7 @@ yfinance>=0.2.36
 ccxt>=4.2.0  # Cryptocurrency exchange trading library
 
 # Technical analysis
-pandas-ta>=0.3.14b0
+pandas-ta
 # TA-Lib>=0.4.28  # Optional - commented out for easier deployment
 
 # Sentiment analysis
