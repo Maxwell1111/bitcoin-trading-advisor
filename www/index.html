@@ -86,11 +86,15 @@
                     return response.json();
                 })
                 .then(data => {
-                    resultDiv.innerHTML = `
-                        <div class="decision">${data.decision}</div>
-                        <div class="confidence">Confidence: ${(data.confidence * 100).toFixed(0)}%</div>
-                        <div class="details">${data.details}</div>
-                    `;
+                    if (data.decision === "ERROR") {
+                        resultDiv.innerHTML = `<p style="color: red; font-weight: bold;">SERVER ERROR:</p><p style="color: red;">${data.details}</p>`;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="decision">${data.decision}</div>
+                            <div class="confidence">Confidence: ${(data.confidence * 100).toFixed(0)}%</div>
+                            <div class="details">${data.details}</div>
+                        `;
+                    }
                 })
                 .catch(error => {
                     resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;

@@ -68,5 +68,10 @@ def get_recommendation_api(
     except Exception as e:
         # This is the crucial part: log the full traceback of the error
         logging.error("!!! UNHANDLED EXCEPTION IN API !!!", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
+        # --- DEBUGGING STEP: Return error in JSON ---
+        return {
+            "decision": "ERROR",
+            "confidence": 0.0,
+            "details": f"A server error occurred: {str(e)}"
+        }
 
