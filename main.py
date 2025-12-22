@@ -22,6 +22,10 @@ from src.engine.recommendation import RecommendationEngine
 from src.utils.config import get_config
 
 
+import logging
+
+# ... (rest of the imports)
+
 def get_trading_recommendation(
     mock: bool, days: int, news_days: int, articles: int, reddit_posts: int
 ):
@@ -31,36 +35,36 @@ def get_trading_recommendation(
     try:
         # Load configuration
         if not mock:
-            print("Loading configuration...")
+            logging.info("Loading configuration...")
             config = get_config()
-            print("✓ Configuration loaded")
+            logging.info("✓ Configuration loaded")
         else:
-            print("Running in MOCK MODE (using sample data)")
+            logging.info("Running in MOCK MODE (using sample data)")
             config = None
 
         # Step 1: Fetch price data
-        print("\n[1/6] Fetching Bitcoin price data...")
+        logging.info("\n[1/6] Fetching Bitcoin price data...")
         price_fetcher = PriceFetcher(provider="coingecko")
 
         current_price = price_fetcher.get_current_price()
-        print(f"✓ Current BTC Price: ${current_price:,.2f}")
+        logging.info(f"✓ Current BTC Price: ${current_price:,.2f}")
 
         historical_data = price_fetcher.fetch_historical_data(days=days)
-        print(f"✓ Retrieved {len(historical_data)} days of historical data")
+        logging.info(f"✓ Retrieved {len(historical_data)} days of historical data")
 
         # Step 2: Fetch news
-        print("\n[2/6] Fetching cryptocurrency news...")
+        logging.info("\n[2/6] Fetching cryptocurrency news...")
 
         if mock or not config:
             news_fetcher = MockNewsFetcher()
-            print("✓ Using mock news data")
+            logging.info("✓ Using mock news data")
         else:
             try:
                 api_key = config.get_api_key('newsapi')
                 news_fetcher = NewsFetcher(api_key=api_key, provider='newsapi')
             except ValueError as e:
-                print(f"⚠ {e}")
-                print("  Using mock news data instead")
+                logging.warning(f"⚠ {e}")
+                logging.info("  Using mock news data instead")
                 news_fetcher = MockNewsFetcher()
 
         news_articles = news_fetcher.fetch_news(
@@ -68,17 +72,17 @@ def get_trading_recommendation(
             days=news_days,
             max_articles=articles
         )
-        print(f"✓ Retrieved {len(news_articles)} news articles")
+        logging.info(f"✓ Retrieved {len(news_articles)} news articles")
 
         # Step 3: Fetch Reddit posts
-        print("\n[3/6] Fetching Reddit posts...")
+        logging.info("\n[3/6] Fetching Reddit posts...")
         reddit_fetcher = MockRedditFetcher()
         reddit_data = reddit_fetcher.fetch_reddit_posts(subreddit='cryptocurrency', limit=reddit_posts)
-        print(f"✓ Retrieved {len(reddit_data)} Reddit posts")
+        logging.info(f"✓ Retrieved {len(reddit_data)} Reddit posts")
 
 
         # Step 4: Technical Analysis
-        print("\n[4/6] Performing technical analysis...")
+        logging.info("\n[4/6] Performing technical analysis...")
         tech_analyzer = TechnicalAnalyzer(
             rsi_period=14,
             macd_fast=12,
@@ -87,23 +91,21 @@ def get_trading_recommendation(
         )
 
         technical_results = tech_analyzer.analyze(historical_data)
-        print(f"✓ RSI: {technical_results['rsi']['value']:.1f} ({technical_results['rsi']['signal']})")
-        print(f"✓ MACD: {technical_results['macd']['signal']}")
-        print(f"✓ Technical Recommendation: {technical_results['overall']['recommendation'].upper()}")
+        logging.info(f"✓ Technical analysis results: {technical_results['overall']['recommendation'].upper()}")
 
         # Step 5: Sentiment Analysis
-        print("\n[5/6] Analyzing sentiment...")
+        logging.info("\n[5/6] Analyzing sentiment...")
         sentiment_analyzer = SentimentAnalyzer(analyzer_type='vader')
 
         news_sentiment_results = sentiment_analyzer.analyze_articles(news_articles)
-        print(f"✓ News Sentiment: {news_sentiment_results['overall_sentiment'].upper()} (Score: {news_sentiment_results['average_compound']:.3f})")
+        logging.info(f"✓ News Sentiment: {news_sentiment_results['overall_sentiment'].upper()} (Score: {news_sentiment_results['average_compound']:.3f})")
         
         reddit_sentiment_results = sentiment_analyzer.analyze_articles(reddit_data)
-        print(f"✓ Reddit Sentiment: {reddit_sentiment_results['overall_sentiment'].upper()} (Score: {reddit_sentiment_results['average_compound']:.3f})")
+        logging.info(f"✓ Reddit Sentiment: {reddit_sentiment_results['overall_sentiment'].upper()} (Score: {reddit_sentiment_results['average_compound']:.3f})")
 
 
         # Step 6: Generate Recommendation
-        print("\n[6/6] Generating recommendation...")
+        logging.info("\n[6/6] Generating recommendation...")
 
         # Get weights from config or use defaults
         if config:
@@ -114,6 +116,8 @@ def get_trading_recommendation(
             reddit_weight = 0.4
             news_weight = 0.3
             tech_weight = 0.3
+        
+        logging.info(f"Using weights: Reddit={reddit_weight}, News={news_weight}, Technical={tech_weight}")
 
         engine = RecommendationEngine(
             reddit_weight=reddit_weight,
@@ -125,20 +129,17 @@ def get_trading_recommendation(
             technical_analysis=technical_results,
             news_sentiment_analysis=news_sentiment_results,
             reddit_sentiment_analysis=reddit_sentiment_results,
-            historical_data=historical_data,
+            historical_data=historical_data.to_dict(orient='list'), # Pass as dict
             current_price=current_price
         )
 
         return recommendation, news_articles, sentiment_analyzer, engine
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
-        if mock:
-            print("\nEven in mock mode, an error occurred. Please check your installation.")
-        else:
-            print("\nTry running with --mock flag to test without API keys:")
-            print("  python main.py --mock")
-        sys.exit(1)
+        logging.error("!!! ERROR IN get_trading_recommendation !!!", exc_info=True)
+        # Re-raise the exception to be caught by the API layer
+        raise e
+
 
 
 def main():

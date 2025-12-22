@@ -1,4 +1,5 @@
 
+import logging
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 import sys
@@ -8,7 +9,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from main import get_trading_recommendation
-from src.engine.recommendation import RecommendationEngine
+
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# ---
 
 app = FastAPI(
     title="Bitcoin Trading Advisor API",
@@ -37,8 +41,9 @@ def get_recommendation_api(
     """
     Returns a trading recommendation for Bitcoin.
     """
+    logging.info(f"API call to /recommendation with params: mock={mock}, days={days}, news_days={news_days}, articles={articles}, reddit_posts={reddit_posts}")
     try:
-        recommendation, _, _, engine = get_trading_recommendation(
+        recommendation, _, _, _ = get_trading_recommendation(
             mock=mock,
             days=days,
             news_days=news_days,
@@ -46,9 +51,8 @@ def get_recommendation_api(
             reddit_posts=reddit_posts,
         )
         
-        # The format_recommendation method returns a string, but the API needs a dictionary.
-        # We need to return the raw recommendation dictionary for Pydantic to validate.
-        # The formatted string can be logged or used differently if needed.
+        logging.info(f"Successfully generated recommendation: {recommendation.get('recommendation')}")
+
         if recommendation.get('recommendation') == 'CONTRARIAN_ALERT':
              return {
                 "decision": recommendation.get('alert_type', 'CONTRARIAN_ALERT'),
@@ -62,5 +66,7 @@ def get_recommendation_api(
             "details": recommendation['reasoning']
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # This is the crucial part: log the full traceback of the error
+        logging.error("!!! UNHANDLED EXCEPTION IN API !!!", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
 
