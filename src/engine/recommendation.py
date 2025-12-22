@@ -119,10 +119,49 @@ class RecommendationEngine:
 
         targets = self._calculate_targets(current_price, recommendation, confidence)
 
+        # Combine Reddit and News for backward compatibility with frontend
+        combined_sentiment = {
+            'overall_sentiment': reddit_sentiment_analysis['overall_sentiment'],  # Use Reddit as primary
+            'average_compound': (reddit_sentiment_analysis['average_compound'] * self.reddit_weight +
+                               news_sentiment_analysis['average_compound'] * self.news_weight) /
+                              (self.reddit_weight + self.news_weight),
+            'article_count': reddit_sentiment_analysis['article_count'] + news_sentiment_analysis['article_count'],
+            'recommendation': reddit_rec if reddit_conf > news_conf else news_rec,
+            'confidence': max(reddit_conf, news_conf)
+        }
+
         return {
             'recommendation': recommendation,
             'confidence': round(confidence, 2),
-            # ... (rest of the dictionary is the same)
+            'combined_score': round(combined_score, 3),
+            'signals': {
+                'technical': {
+                    'recommendation': technical_rec,
+                    'confidence': technical_conf,
+                    'score': round(tech_score, 3),
+                    'weight': self.technical_weight,
+                    'details': {
+                        'rsi': technical_analysis.get('rsi', {}),
+                        'macd': technical_analysis.get('macd', {}),
+                        'ma_trend': technical_analysis.get('ma_trend'),
+                        'ma_crossovers': technical_analysis.get('ma_crossovers'),
+                        'moving_averages': technical_analysis.get('moving_averages')
+                    }
+                },
+                'sentiment': {
+                    'recommendation': combined_sentiment['recommendation'],
+                    'confidence': combined_sentiment['confidence'],
+                    'score': round((reddit_score * self.reddit_weight + news_score * self.news_weight) /
+                                 (self.reddit_weight + self.news_weight), 3),
+                    'weight': self.reddit_weight + self.news_weight,
+                    'details': combined_sentiment
+                }
+            },
+            'current_price': current_price,
+            'targets': targets,
+            'reasoning': reasoning,
+            'divergence_signal': divergence_signal,
+            'timestamp': datetime.datetime.now().isoformat()
         }
 
 
@@ -135,8 +174,35 @@ class RecommendationEngine:
             'alert_type': alert_type,
             'current_price': current_price,
             'timestamp': datetime.datetime.now().isoformat(),
-            'targets': {},
-            'signals': {}
+            'combined_score': 0.0,
+            'targets': {
+                'entry': round(current_price, 2),
+                'support': round(current_price * 0.95, 2),
+                'resistance': round(current_price * 1.05, 2)
+            },
+            'signals': {
+                'technical': {
+                    'recommendation': 'hold',
+                    'confidence': 0.5,
+                    'score': 0.0,
+                    'weight': 0.6,
+                    'details': {
+                        'rsi': {'value': 50, 'signal': 'neutral'},
+                        'macd': {'signal': 'neutral'}
+                    }
+                },
+                'sentiment': {
+                    'recommendation': 'hold',
+                    'confidence': 1.0,
+                    'score': 1.0 if alert_type == "Extreme Fear" else -1.0,
+                    'weight': 0.4,
+                    'details': {
+                        'overall_sentiment': alert_type.lower().replace(' ', '_'),
+                        'average_compound': 0.1 if alert_type == "Extreme Fear" else 0.9,
+                        'article_count': 0
+                    }
+                }
+            }
         }
 
 
