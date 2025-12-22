@@ -120,11 +120,15 @@ class RecommendationEngine:
         targets = self._calculate_targets(current_price, recommendation, confidence)
 
         # Combine Reddit and News for backward compatibility with frontend
+        combined_compound = (reddit_sentiment_analysis['average_compound'] * self.reddit_weight +
+                            news_sentiment_analysis['average_compound'] * self.news_weight) / \
+                           (self.reddit_weight + self.news_weight)
+
         combined_sentiment = {
             'overall_sentiment': reddit_sentiment_analysis['overall_sentiment'],  # Use Reddit as primary
-            'average_compound': (reddit_sentiment_analysis['average_compound'] * self.reddit_weight +
-                               news_sentiment_analysis['average_compound'] * self.news_weight) /
-                              (self.reddit_weight + self.news_weight),
+            'overall': reddit_sentiment_analysis['overall_sentiment'],  # Alias for compatibility
+            'compound': combined_compound,  # Frontend expects 'compound'
+            'average_compound': combined_compound,  # Keep both for compatibility
             'article_count': reddit_sentiment_analysis['article_count'] + news_sentiment_analysis['article_count'],
             'recommendation': reddit_rec if reddit_conf > news_conf else news_rec,
             'confidence': max(reddit_conf, news_conf)
@@ -198,6 +202,8 @@ class RecommendationEngine:
                     'weight': 0.4,
                     'details': {
                         'overall_sentiment': alert_type.lower().replace(' ', '_'),
+                        'overall': alert_type.lower().replace(' ', '_'),
+                        'compound': 0.1 if alert_type == "Extreme Fear" else 0.9,
                         'average_compound': 0.1 if alert_type == "Extreme Fear" else 0.9,
                         'article_count': 0
                     }
