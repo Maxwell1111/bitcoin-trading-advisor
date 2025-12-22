@@ -255,39 +255,78 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
         tech_analyzer = TechnicalAnalyzer()
         technical_results = tech_analyzer.analyze(historical_data)
 
-        # Sentiment analysis
+        # Sentiment analysis - separate Reddit from News
         try:
             sentiment_analyzer = SentimentAnalyzer(analyzer_type='vader')
-            sentiment_results = sentiment_analyzer.analyze_articles(news_articles)
 
-            # Add source breakdown to sentiment results
-            source_counts = {}
-            for article in news_articles:
-                source_type = article.get('source_type', 'news')
-                source_counts[source_type] = source_counts.get(source_type, 0) + 1
+            # Split articles by source type
+            news_items = [a for a in news_articles if a.get('source_type') == 'news']
+            reddit_items = [a for a in news_articles if a.get('source_type') == 'reddit']
 
-            sentiment_results['sources_used'] = source_counts
+            # Analyze separately
+            if news_items:
+                news_sentiment = sentiment_analyzer.analyze_articles(news_items)
+            else:
+                news_sentiment = {
+                    'overall_sentiment': 'neutral',
+                    'recommendation': 'hold',
+                    'confidence': 0.5,
+                    'average_compound': 0.0,
+                    'article_count': 0,
+                    'positive_count': 0,
+                    'negative_count': 0,
+                    'neutral_count': 0
+                }
+
+            if reddit_items:
+                reddit_sentiment = sentiment_analyzer.analyze_articles(reddit_items)
+            else:
+                reddit_sentiment = {
+                    'overall_sentiment': 'neutral',
+                    'recommendation': 'hold',
+                    'confidence': 0.5,
+                    'average_compound': 0.0,
+                    'article_count': 0,
+                    'positive_count': 0,
+                    'negative_count': 0,
+                    'neutral_count': 0
+                }
+
+            # Track source counts
+            source_counts = {
+                'news': len(news_items),
+                'reddit': len(reddit_items)
+            }
+
+            print(f"Sentiment analysis: {len(news_items)} news, {len(reddit_items)} reddit")
 
         except Exception as e:
             print(f"Sentiment analysis error: {e}")
             # Create default sentiment results
-            sentiment_results = {
+            news_sentiment = {
                 'overall_sentiment': 'neutral',
                 'recommendation': 'hold',
                 'confidence': 0.5,
                 'average_compound': 0.0,
-                'article_count': len(news_articles),
+                'article_count': 0,
                 'positive_count': 0,
                 'negative_count': 0,
-                'neutral_count': len(news_articles),
-                'sources_used': {'news': len(news_articles)}
+                'neutral_count': 0
             }
+            reddit_sentiment = news_sentiment.copy()
+            source_counts = {'news': 0, 'reddit': 0}
 
-        # Generate recommendation
-        engine = RecommendationEngine(technical_weight=0.6, sentiment_weight=0.4)
+        # Generate recommendation with contrarian engine
+        engine = RecommendationEngine(
+            reddit_weight=0.25,
+            news_weight=0.15,
+            technical_weight=0.6
+        )
         recommendation = engine.generate_recommendation(
             technical_analysis=technical_results,
-            sentiment_analysis=sentiment_results,
+            news_sentiment_analysis=news_sentiment,
+            reddit_sentiment_analysis=reddit_sentiment,
+            historical_data=historical_data,
             current_price=current_price
         )
 

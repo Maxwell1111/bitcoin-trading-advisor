@@ -4,6 +4,10 @@ Recommendation engine that combines sentiment and technical analysis
 
 from typing import Dict, Tuple
 import datetime
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 
 class RecommendationEngine:
