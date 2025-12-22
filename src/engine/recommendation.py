@@ -9,52 +9,100 @@ import datetime
 class RecommendationEngine:
     """Generate trading recommendations based on combined signals"""
 
-    def __init__(self, technical_weight: float = 0.6, sentiment_weight: float = 0.4):
+    def __init__(self, reddit_weight: float = 0.4, news_weight: float = 0.3, technical_weight: float = 0.3):
         """
         Initialize recommendation engine
 
         Args:
+            reddit_weight: Weight for Reddit sentiment analysis (0-1)
+            news_weight: Weight for news sentiment analysis (0-1)
             technical_weight: Weight for technical analysis (0-1)
-            sentiment_weight: Weight for sentiment analysis (0-1)
         """
-        if not (0 <= technical_weight <= 1 and 0 <= sentiment_weight <= 1):
+        if not (0 <= reddit_weight <= 1 and 0 <= news_weight <= 1 and 0 <= technical_weight <= 1):
             raise ValueError("Weights must be between 0 and 1")
 
-        if abs(technical_weight + sentiment_weight - 1.0) > 0.01:
+        if abs(reddit_weight + news_weight + technical_weight - 1.0) > 0.01:
             raise ValueError("Weights must sum to 1.0")
 
+        self.reddit_weight = reddit_weight
+        self.news_weight = news_weight
         self.technical_weight = technical_weight
-        self.sentiment_weight = sentiment_weight
+
+    def _check_divergence(self, historical_data: Dict, reddit_sentiment_score: float) -> str:
+        """
+        Checks for bearish divergence between price and Reddit sentiment.
+        A simple implementation: checks if price is at a 30-day high while sentiment is not.
+        """
+        if 'Close' not in historical_data or len(historical_data['Close']) < 30:
+            return "Not enough data for divergence check."
+
+        recent_prices = historical_data['Close'][-30:]
+        max_price = max(recent_prices)
+        current_price = recent_prices.iloc[-1]
+
+        # A very basic check: is price at a high but sentiment is low?
+        if current_price >= max_price and reddit_sentiment_score < 0.5:
+            return "BEARISH DIVERGENCE: Price is hitting new highs, but Reddit sentiment remains low. This could signal underlying weakness."
+        
+        return "No significant divergence detected."
 
     def generate_recommendation(self, technical_analysis: Dict,
-                               sentiment_analysis: Dict,
+                               news_sentiment_analysis: Dict,
+                               reddit_sentiment_analysis: Dict,
+                               historical_data: Dict,
                                current_price: float) -> Dict:
         """
         Generate trading recommendation
 
         Args:
             technical_analysis: Results from technical analyzer
-            sentiment_analysis: Results from sentiment analyzer
+            news_sentiment_analysis: Results from news sentiment analyzer
+            reddit_sentiment_analysis: Results from Reddit sentiment analyzer
+            historical_data: Historical price data for divergence checks
             current_price: Current Bitcoin price
 
         Returns:
             Dictionary with recommendation and details
         """
+        # --- Priority 1: Contrarian Logic Gate ---
+        reddit_score_raw = reddit_sentiment_analysis['average_compound']
+        if reddit_score_raw > 0.85:
+            return self._create_contrarian_alert(
+                "CONTRARIAN ALERT: Market sentiment is unsustainably bullish. Historically, this precedes a pullback. Consider a cautious stance.",
+                "Extreme Euphoria",
+                current_price
+            )
+        if reddit_score_raw < 0.15:
+            return self._create_contrarian_alert(
+                "CONTRARIAN ALERT: Maximum fear detected. Potential local bottom. Historically, this is an accumulation zone.",
+                "Extreme Fear",
+                current_price
+            )
+
+        # --- Priority 2: Divergence Check ---
+        divergence_signal = self._check_divergence(historical_data, reddit_score_raw)
+
+        # --- Priority 3: Weighted Signal Combination ---
         # Extract signals
         technical_rec = technical_analysis['overall']['recommendation']
         technical_conf = technical_analysis['overall']['confidence']
 
-        sentiment_rec = sentiment_analysis['recommendation']
-        sentiment_conf = sentiment_analysis['confidence']
+        news_rec = news_sentiment_analysis['recommendation']
+        news_conf = news_sentiment_analysis['confidence']
+        
+        reddit_rec = reddit_sentiment_analysis['recommendation']
+        reddit_conf = reddit_sentiment_analysis['confidence']
 
         # Convert recommendations to numerical scores (-1 to 1)
         tech_score = self._recommendation_to_score(technical_rec) * technical_conf
-        sent_score = self._recommendation_to_score(sentiment_rec) * sentiment_conf
+        news_score = self._recommendation_to_score(news_rec) * news_conf
+        reddit_score = self._recommendation_to_score(reddit_rec) * reddit_conf
 
         # Calculate weighted combined score
         combined_score = (
-            tech_score * self.technical_weight +
-            sent_score * self.sentiment_weight
+            reddit_score * self.reddit_weight +
+            news_score * self.news_weight +
+            tech_score * self.technical_weight
         )
 
         # Determine final recommendation
@@ -62,11 +110,11 @@ class RecommendationEngine:
 
         # Generate reasoning
         reasoning = self._generate_reasoning(
-            technical_analysis, sentiment_analysis,
-            technical_rec, sentiment_rec, recommendation
+            technical_analysis, news_sentiment_analysis, reddit_sentiment_analysis,
+            divergence_signal, recommendation
         )
 
-        # Calculate target prices (simple estimation)
+        # Calculate target prices
         targets = self._calculate_targets(current_price, recommendation, confidence)
 
         return {
@@ -74,29 +122,26 @@ class RecommendationEngine:
             'confidence': round(confidence, 2),
             'combined_score': round(combined_score, 3),
             'signals': {
+                'reddit_sentiment': {
+                    'recommendation': reddit_rec,
+                    'confidence': reddit_conf,
+                    'score': round(reddit_score, 3),
+                    'weight': self.reddit_weight,
+                    'details': reddit_sentiment_analysis
+                },
+                'news_sentiment': {
+                    'recommendation': news_rec,
+                    'confidence': news_conf,
+                    'score': round(news_score, 3),
+                    'weight': self.news_weight,
+                    'details': news_sentiment_analysis
+                },
                 'technical': {
                     'recommendation': technical_rec,
                     'confidence': technical_conf,
                     'score': round(tech_score, 3),
                     'weight': self.technical_weight,
-                    'details': {
-                        'rsi': technical_analysis['rsi'],
-                        'macd': technical_analysis['macd'],
-                        'ma_trend': technical_analysis.get('ma_trend'),
-                        'ma_crossovers': technical_analysis.get('ma_crossovers'),
-                        'moving_averages': technical_analysis.get('moving_averages')
-                    }
-                },
-                'sentiment': {
-                    'recommendation': sentiment_rec,
-                    'confidence': sentiment_conf,
-                    'score': round(sent_score, 3),
-                    'weight': self.sentiment_weight,
-                    'details': {
-                        'overall': sentiment_analysis['overall_sentiment'],
-                        'compound': sentiment_analysis['average_compound'],
-                        'article_count': sentiment_analysis['article_count']
-                    }
+                    'details': technical_analysis
                 }
             },
             'current_price': current_price,
@@ -104,6 +149,20 @@ class RecommendationEngine:
             'reasoning': reasoning,
             'timestamp': datetime.datetime.now().isoformat()
         }
+
+    def _create_contrarian_alert(self, message: str, alert_type: str, current_price: float) -> Dict:
+        """Creates a special dictionary for contrarian alerts."""
+        return {
+            'recommendation': 'CONTRARIAN_ALERT',
+            'confidence': 1.0,
+            'reasoning': message,
+            'alert_type': alert_type,
+            'current_price': current_price,
+            'timestamp': datetime.datetime.now().isoformat(),
+            'targets': {},
+            'signals': {}
+        }
+
 
     def _recommendation_to_score(self, recommendation: str) -> float:
         """
@@ -145,101 +204,22 @@ class RecommendationEngine:
         else:
             return "hold", 1.0 - abs_score
 
-    def _generate_reasoning(self, technical: Dict, sentiment: Dict,
-                           tech_rec: str, sent_rec: str, final_rec: str) -> str:
-        """Generate human-readable reasoning for recommendation"""
-
-        reasons = []
-
-        # MOVING AVERAGES FIRST - Most important for macro trend
-        if 'moving_averages' in technical and technical['moving_averages']:
-            mas = technical['moving_averages']
-
-            # 200-Day SMA Analysis (Bull/Bear Market Status)
-            if 'sma_200' in mas:
-                sma_200_val = mas['sma_200']['value']
-                sma_200_pos = mas['sma_200']['price_vs_ma']
-                sma_200_dist = mas['sma_200']['distance_pct']
-
-                if sma_200_pos == 'above':
-                    reasons.append(f"MACRO BULL MARKET: Price is {sma_200_dist:.1f}% above the 200-day SMA (${sma_200_val:,.0f}), confirming we're in a macro bull trend")
-                else:
-                    reasons.append(f"CRYPTO WINTER WARNING: Price is {abs(sma_200_dist):.1f}% below the 200-day SMA (${sma_200_val:,.0f}), indicating bear market territory")
-
-            # 21-Week EMA Analysis (Bull Market Support Band)
-            if 'ema_147' in mas:
-                ema_21w_val = mas['ema_147']['value']
-                ema_21w_pos = mas['ema_147']['price_vs_ma']
-                ema_21w_dist = mas['ema_147']['distance_pct']
-
-                if ema_21w_pos == 'above':
-                    reasons.append(f"BULL MARKET SUPPORT intact: Price is {ema_21w_dist:.1f}% above the 21-week EMA (${ema_21w_val:,.0f}), a historically reliable support level in bull markets")
-                else:
-                    reasons.append(f"SUPPORT LOST: Price is {abs(ema_21w_dist):.1f}% below the 21-week EMA (${ema_21w_val:,.0f}), which historically signals weakening bull momentum")
-
-            # 50-Day SMA (Medium-term trend)
-            if 'sma_50' in mas:
-                sma_50_val = mas['sma_50']['value']
-                sma_50_pos = mas['sma_50']['price_vs_ma']
-                sma_50_dist = mas['sma_50']['distance_pct']
-
-                if sma_50_pos == 'above':
-                    reasons.append(f"Medium-term trend is bullish with price {sma_50_dist:.1f}% above 50-day SMA (${sma_50_val:,.0f})")
-                else:
-                    reasons.append(f"Medium-term weakness with price {abs(sma_50_dist):.1f}% below 50-day SMA (${sma_50_val:,.0f})")
-
-        # Moving average crossovers (CRITICAL SIGNALS)
-        if 'ma_crossovers' in technical:
-            crossovers = technical['ma_crossovers']
-            if crossovers.get('golden_cross'):
-                reasons.append("🌟 GOLDEN CROSS DETECTED: 50 SMA crossed above 200 SMA - historically this signals major bull runs ahead!")
-            elif crossovers.get('death_cross'):
-                reasons.append("☠️ DEATH CROSS DETECTED: 50 SMA crossed below 200 SMA - historically this precedes extended bear markets!")
-
-            if crossovers.get('short_term_bullish_cross'):
-                reasons.append("Short-term bullish crossover detected (9 EMA above 21 EMA)")
-            elif crossovers.get('short_term_bearish_cross'):
-                reasons.append("Short-term bearish crossover detected (9 EMA below 21 EMA)")
-
-        # RSI and MACD (Supporting Indicators)
-        rsi_val = technical['rsi']['value']
-        rsi_signal = technical['rsi']['signal']
-        macd_signal = technical['macd']['signal']
-
-        if 'overbought' in rsi_signal:
-            reasons.append(f"RSI is overbought at {rsi_val:.1f}, suggesting potential short-term pullback")
-        elif 'oversold' in rsi_signal:
-            reasons.append(f"RSI is oversold at {rsi_val:.1f}, indicating potential short-term bounce")
-        else:
-            reasons.append(f"RSI at {rsi_val:.1f} is in neutral territory")
-
-        if 'crossover' in macd_signal:
-            reasons.append(f"MACD shows {macd_signal.replace('_', ' ')}, confirming momentum shift")
-        elif 'bullish' in macd_signal:
-            reasons.append("MACD indicates bullish momentum")
-        elif 'bearish' in macd_signal:
-            reasons.append("MACD indicates bearish momentum")
-
-        # Sentiment reasoning
-        sent_overall = sentiment['overall_sentiment']
-        article_count = sentiment['article_count']
-        compound = sentiment['average_compound']
-
-        reasons.append(
-            f"News sentiment is {sent_overall} "
-            f"(score: {compound:.2f} from {article_count} articles)"
-        )
-
+    def _generate_reasoning(self, technical: Dict, news: Dict, reddit: Dict, divergence: str, final_rec: str) -> str:
+        """Generate human-readable reasoning for the recommendation."""
+        reasons = [divergence]
+        
+        # Social, News, and Technical summaries
+        reasons.append(f"Reddit sentiment is {reddit['overall_sentiment']} (score: {reddit['average_compound']:.2f}).")
+        reasons.append(f"News sentiment is {news['overall_sentiment']} (score: {news['average_compound']:.2f}).")
+        reasons.append(f"Technical analysis suggests a {technical['overall']['recommendation']} state.")
+        
         # Agreement/disagreement
-        if tech_rec == sent_rec:
-            reasons.append("Technical and sentiment analysis are in agreement")
+        if technical['overall']['recommendation'] == news['recommendation'] == reddit['recommendation']:
+            reasons.append("Social sentiment, news sentiment, and technical analysis are all in agreement.")
         else:
-            reasons.append(
-                f"Technical analysis suggests {tech_rec}, "
-                f"while sentiment suggests {sent_rec}"
-            )
+            reasons.append("There is some disagreement between signals, requiring a weighted approach.")
 
-        return ". ".join(reasons) + "."
+        return ". ".join(filter(None, reasons)) + "."
 
     def _calculate_targets(self, current_price: float, recommendation: str,
                           confidence: float) -> Dict:
@@ -282,15 +262,25 @@ class RecommendationEngine:
             }
 
     def format_recommendation(self, recommendation: Dict) -> str:
-        """
-        Format recommendation as human-readable text
+        """Formats the recommendation dictionary into a human-readable string."""
+        # Handle Contrarian Alert
+        if recommendation.get('recommendation') == 'CONTRARIAN_ALERT':
+            return f"""
+╔══════════════════════════════════════════════════════════════╗
+║                   BITCOIN PORTFOLIO ADVISOR                  ║
+╚══════════════════════════════════════════════════════════════╝
 
-        Args:
-            recommendation: Recommendation dictionary
+Date/Time: {recommendation['timestamp']}
+Current BTC Price: ${recommendation['current_price']:,.2f}
 
-        Returns:
-            Formatted string
-        """
+═══════════════════════════════════════════════════════════════
+
+{recommendation.get('alert_type', '').upper()}
+{recommendation['reasoning']}
+
+═══════════════════════════════════════════════════════════════
+"""
+        
         rec = recommendation['recommendation'].replace('_', ' ').upper()
         conf = recommendation['confidence'] * 100
         price = recommendation['current_price']
@@ -299,6 +289,8 @@ class RecommendationEngine:
 ╔══════════════════════════════════════════════════════════════╗
 ║           BITCOIN PORTFOLIO ADVISOR RECOMMENDATION           ║
 ╚══════════════════════════════════════════════════════════════╝
+
+**Based on Reddit Sentiment Analysis (High Priority)...**
 
 Date/Time: {recommendation['timestamp']}
 Current BTC Price: ${price:,.2f}
@@ -312,19 +304,19 @@ Confidence Level: {conf:.0f}%
 
 ANALYSIS BREAKDOWN:
 
+Social Sentiment (Reddit) ({self.reddit_weight * 100:.0f}% weight):
+  → Recommendation: {recommendation['signals']['reddit_sentiment']['recommendation'].upper()}
+  → Confidence: {recommendation['signals']['reddit_sentiment']['confidence'] * 100:.0f}%
+  → Overall Sentiment: {recommendation['signals']['reddit_sentiment']['details']['overall_sentiment'].upper()}
+
+News Sentiment ({self.news_weight * 100:.0f}% weight):
+  → Recommendation: {recommendation['signals']['news_sentiment']['recommendation'].upper()}
+  → Confidence: {recommendation['signals']['news_sentiment']['confidence'] * 100:.0f}%
+  → Overall Sentiment: {recommendation['signals']['news_sentiment']['details']['overall_sentiment'].upper()}
+
 Technical Analysis ({self.technical_weight * 100:.0f}% weight):
   → Recommendation: {recommendation['signals']['technical']['recommendation'].upper()}
   → Confidence: {recommendation['signals']['technical']['confidence'] * 100:.0f}%
-  → RSI: {recommendation['signals']['technical']['details']['rsi']['value']}
-     ({recommendation['signals']['technical']['details']['rsi']['signal']})
-  → MACD: {recommendation['signals']['technical']['details']['macd']['signal']}
-
-Sentiment Analysis ({self.sentiment_weight * 100:.0f}% weight):
-  → Recommendation: {recommendation['signals']['sentiment']['recommendation'].upper()}
-  → Confidence: {recommendation['signals']['sentiment']['confidence'] * 100:.0f}%
-  → Overall Sentiment: {recommendation['signals']['sentiment']['details']['overall'].upper()}
-  → News Articles Analyzed: {recommendation['signals']['sentiment']['details']['article_count']}
-  → Sentiment Score: {recommendation['signals']['sentiment']['details']['compound']}
 
 ═══════════════════════════════════════════════════════════════
 
@@ -335,32 +327,14 @@ REASONING:
 
 SUGGESTED TARGETS:
 """
-        # Add targets
         targets = recommendation['targets']
         if 'target_1' in targets:
-            output += f"""
-Entry Point: ${targets['entry']:,.2f}
-Target 1: ${targets['target_1']:,.2f} ({((targets['target_1']/price - 1) * 100):+.1f}%)
-Target 2: ${targets['target_2']:,.2f} ({((targets['target_2']/price - 1) * 100):+.1f}%)
-Stop Loss: ${targets['stop_loss']:,.2f} ({((targets['stop_loss']/price - 1) * 100):+.1f}%)
-"""
+            output += f"Entry: ${targets['entry']:,.2f}, Target 1: ${targets['target_1']:,.2f}, Stop: ${targets['stop_loss']:,.2f}"
         else:
-            output += f"""
-Current Level: ${targets['entry']:,.2f}
-Support: ${targets.get('support', 'N/A'):,.2f}
-Resistance: ${targets.get('resistance', 'N/A'):,.2f}
-"""
+            output += f"Support: ${targets.get('support', 'N/A'):,.2f}, Resistance: ${targets.get('resistance', 'N/A'):,.2f}"
 
-        output += """
-═══════════════════════════════════════════════════════════════
-
-DISCLAIMER: This is for educational purposes only. Not financial
-advice. Always do your own research and never invest more than
-you can afford to lose.
-
-═══════════════════════════════════════════════════════════════
-"""
-
+        output += "\n═══════════════════════════════════════════════════════════════\n"
+        output += "DISCLAIMER: For educational purposes only. Not financial advice."
         return output.strip()
 
 

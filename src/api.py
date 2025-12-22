@@ -32,6 +32,7 @@ def get_recommendation_api(
     days: int = Query(100, description="Number of days of historical price data"),
     news_days: int = Query(7, description="Number of days of news to analyze"),
     articles: int = Query(50, description="Maximum number of news articles to analyze"),
+    reddit_posts: int = Query(100, description="Maximum number of reddit posts to analyze"),
 ):
     """
     Returns a trading recommendation for Bitcoin.
@@ -42,15 +43,23 @@ def get_recommendation_api(
             days=days,
             news_days=news_days,
             articles=articles,
+            reddit_posts=reddit_posts,
         )
         
-        formatted = engine.format_recommendation(recommendation)
-
+        # The format_recommendation method returns a string, but the API needs a dictionary.
+        # We need to return the raw recommendation dictionary for Pydantic to validate.
+        # The formatted string can be logged or used differently if needed.
+        if recommendation.get('recommendation') == 'CONTRARIAN_ALERT':
+             return {
+                "decision": recommendation.get('alert_type', 'CONTRARIAN_ALERT'),
+                "confidence": recommendation.get('confidence', 1.0),
+                "details": recommendation.get('reasoning', '')
+            }
 
         return {
-            "decision": formatted['recommendation'],
-            "confidence": formatted['confidence'],
-            "details": formatted['reasoning']
+            "decision": recommendation['recommendation'],
+            "confidence": recommendation['confidence'],
+            "details": recommendation['reasoning']
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

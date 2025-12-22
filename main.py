@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from src.data.price_fetcher import PriceFetcher
 from src.data.news_fetcher import NewsFetcher, MockNewsFetcher
+from src.data.reddit_fetcher import MockRedditFetcher
 from src.analysis.technical import TechnicalAnalyzer
 from src.analysis.sentiment import SentimentAnalyzer
 from src.engine.recommendation import RecommendationEngine
@@ -22,7 +23,7 @@ from src.utils.config import get_config
 
 
 def get_trading_recommendation(
-    mock: bool, days: int, news_days: int, articles: int
+    mock: bool, days: int, news_days: int, articles: int, reddit_posts: int
 ):
     """
     Fetches data, performs analysis, and returns a trading recommendation.
@@ -38,7 +39,7 @@ def get_trading_recommendation(
             config = None
 
         # Step 1: Fetch price data
-        print("\n[1/5] Fetching Bitcoin price data...")
+        print("\n[1/6] Fetching Bitcoin price data...")
         price_fetcher = PriceFetcher(provider="coingecko")
 
         current_price = price_fetcher.get_current_price()
@@ -48,7 +49,7 @@ def get_trading_recommendation(
         print(f"✓ Retrieved {len(historical_data)} days of historical data")
 
         # Step 2: Fetch news
-        print("\n[2/5] Fetching cryptocurrency news...")
+        print("\n[2/6] Fetching cryptocurrency news...")
 
         if mock or not config:
             news_fetcher = MockNewsFetcher()
@@ -69,8 +70,15 @@ def get_trading_recommendation(
         )
         print(f"✓ Retrieved {len(news_articles)} news articles")
 
-        # Step 3: Technical Analysis
-        print("\n[3/5] Performing technical analysis...")
+        # Step 3: Fetch Reddit posts
+        print("\n[3/6] Fetching Reddit posts...")
+        reddit_fetcher = MockRedditFetcher()
+        reddit_data = reddit_fetcher.fetch_reddit_posts(subreddit='cryptocurrency', limit=reddit_posts)
+        print(f"✓ Retrieved {len(reddit_data)} Reddit posts")
+
+
+        # Step 4: Technical Analysis
+        print("\n[4/6] Performing technical analysis...")
         tech_analyzer = TechnicalAnalyzer(
             rsi_period=14,
             macd_fast=12,
@@ -83,36 +91,41 @@ def get_trading_recommendation(
         print(f"✓ MACD: {technical_results['macd']['signal']}")
         print(f"✓ Technical Recommendation: {technical_results['overall']['recommendation'].upper()}")
 
-        # Step 4: Sentiment Analysis
-        print("\n[4/5] Analyzing news sentiment...")
+        # Step 5: Sentiment Analysis
+        print("\n[5/6] Analyzing sentiment...")
         sentiment_analyzer = SentimentAnalyzer(analyzer_type='vader')
 
-        sentiment_results = sentiment_analyzer.analyze_articles(news_articles)
-        print(f"✓ Overall Sentiment: {sentiment_results['overall_sentiment'].upper()}")
-        print(f"✓ Sentiment Score: {sentiment_results['average_compound']:.3f}")
-        print(f"✓ Positive: {sentiment_results['positive_count']}, "
-              f"Negative: {sentiment_results['negative_count']}, "
-              f"Neutral: {sentiment_results['neutral_count']}")
+        news_sentiment_results = sentiment_analyzer.analyze_articles(news_articles)
+        print(f"✓ News Sentiment: {news_sentiment_results['overall_sentiment'].upper()} (Score: {news_sentiment_results['average_compound']:.3f})")
+        
+        reddit_sentiment_results = sentiment_analyzer.analyze_articles(reddit_data)
+        print(f"✓ Reddit Sentiment: {reddit_sentiment_results['overall_sentiment'].upper()} (Score: {reddit_sentiment_results['average_compound']:.3f})")
 
-        # Step 5: Generate Recommendation
-        print("\n[5/5] Generating recommendation...")
+
+        # Step 6: Generate Recommendation
+        print("\n[6/6] Generating recommendation...")
 
         # Get weights from config or use defaults
         if config:
-            tech_weight = config.get('recommendation.technical_weight', 0.6)
-            sent_weight = config.get('recommendation.sentiment_weight', 0.4)
+            reddit_weight = config.get('recommendation.reddit_weight', 0.4)
+            news_weight = config.get('recommendation.news_weight', 0.3)
+            tech_weight = config.get('recommendation.technical_weight', 0.3)
         else:
-            tech_weight = 0.6
-            sent_weight = 0.4
+            reddit_weight = 0.4
+            news_weight = 0.3
+            tech_weight = 0.3
 
         engine = RecommendationEngine(
-            technical_weight=tech_weight,
-            sentiment_weight=sent_weight
+            reddit_weight=reddit_weight,
+            news_weight=news_weight,
+            technical_weight=tech_weight
         )
 
         recommendation = engine.generate_recommendation(
             technical_analysis=technical_results,
-            sentiment_analysis=sentiment_results,
+            news_sentiment_analysis=news_sentiment_results,
+            reddit_sentiment_analysis=reddit_sentiment_results,
+            historical_data=historical_data,
             current_price=current_price
         )
 
@@ -156,6 +169,12 @@ def main():
         default=50,
         help='Maximum number of news articles to analyze (default: 50)'
     )
+    parser.add_argument(
+        '--reddit-posts',
+        type=int,
+        default=100,
+        help='Maximum number of reddit posts to analyze (default: 100)'
+    )
 
     args = parser.parse_args()
 
@@ -170,27 +189,12 @@ def main():
             days=args.days,
             news_days=args.news_days,
             articles=args.articles,
+            reddit_posts=args.reddit_posts,
         )
 
         # Display results
         print("\n")
         print(engine.format_recommendation(recommendation))
-
-        # Optional: Show top news headlines
-        if len(news_articles) > 0:
-            print("\n" + "=" * 70)
-            print("TOP NEWS HEADLINES:".center(70))
-            print("=" * 70)
-            for i, article in enumerate(news_articles[:5], 1):
-                sentiment_result = sentiment_analyzer.analyze_article(article)
-                sentiment_label = sentiment_result['classification'].upper()
-                print(f"\n{i}. {article['title']}")
-                print(f"   Source: {article.get('source', 'Unknown')} | "
-                      f"Sentiment: {sentiment_label}")
-
-        print("\n" + "=" * 70)
-        print("Analysis complete! Happy investing! 🚀".center(70))
-        print("=" * 70)
 
     except KeyboardInterrupt:
         print("\n\nOperation cancelled by user.")
