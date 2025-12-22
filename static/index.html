@@ -478,32 +478,91 @@
                         </div>
 
                         ${data.signals.technical.details.ma_trend ? `
-                        <div class="detail-card">
-                            <h3>📊 Moving Averages</h3>
+                        <div class="detail-card" style="grid-column: span 2;">
+                            <h3>📊 Moving Averages Analysis</h3>
                             <div class="metric">
-                                <span class="metric-label">Trend</span>
-                                <span class="metric-value">${data.signals.technical.details.ma_trend.overall_trend.replace('_', ' ').toUpperCase()}</span>
+                                <span class="metric-label">Overall Trend</span>
+                                <span class="metric-value" style="color: ${data.signals.technical.details.ma_trend.overall_trend.includes('uptrend') ? 'green' : data.signals.technical.details.ma_trend.overall_trend.includes('downtrend') ? 'red' : 'orange'}; font-weight: bold;">
+                                    ${data.signals.technical.details.ma_trend.overall_trend.replace('_', ' ').toUpperCase()}
+                                </span>
                             </div>
                             <div class="metric">
-                                <span class="metric-label">Bullish Signals</span>
-                                <span class="metric-value">${data.signals.technical.details.ma_trend.bullish_signals}/${data.signals.technical.details.ma_trend.bullish_signals + data.signals.technical.details.ma_trend.bearish_signals}</span>
+                                <span class="metric-label">MA Alignment</span>
+                                <span class="metric-value">${data.signals.technical.details.ma_trend.bullish_signals} Bullish / ${data.signals.technical.details.ma_trend.bearish_signals} Bearish</span>
                             </div>
-                            ${data.signals.technical.details.ma_crossovers.golden_cross ? `
-                            <div class="metric">
-                                <span class="metric-label">🌟 Golden Cross</span>
-                                <span class="metric-value" style="color: green; font-weight: bold;">DETECTED!</span>
+
+                            ${data.signals.technical.details.moving_averages ? `
+                            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                                <strong style="display: block; margin-bottom: 10px; color: #667eea;">Key Moving Averages:</strong>
+                                ${data.signals.technical.details.moving_averages.sma_200 ? `
+                                <div class="metric">
+                                    <span class="metric-label">200-Day SMA (Bull/Bear Line)</span>
+                                    <span class="metric-value">
+                                        $${data.signals.technical.details.moving_averages.sma_200.value.toLocaleString()}
+                                        <span style="color: ${data.signals.technical.details.moving_averages.sma_200.price_vs_ma === 'above' ? 'green' : 'red'}; font-weight: bold;">
+                                            ${data.signals.technical.details.moving_averages.sma_200.price_vs_ma === 'above' ? '↑' : '↓'}
+                                            ${Math.abs(data.signals.technical.details.moving_averages.sma_200.distance_pct)}%
+                                        </span>
+                                    </span>
+                                </div>
+                                ` : ''}
+                                ${data.signals.technical.details.moving_averages.ema_147 ? `
+                                <div class="metric">
+                                    <span class="metric-label">21-Week EMA (Bull Support)</span>
+                                    <span class="metric-value">
+                                        $${data.signals.technical.details.moving_averages.ema_147.value.toLocaleString()}
+                                        <span style="color: ${data.signals.technical.details.moving_averages.ema_147.price_vs_ma === 'above' ? 'green' : 'red'}; font-weight: bold;">
+                                            ${data.signals.technical.details.moving_averages.ema_147.price_vs_ma === 'above' ? '↑' : '↓'}
+                                            ${Math.abs(data.signals.technical.details.moving_averages.ema_147.distance_pct)}%
+                                        </span>
+                                    </span>
+                                </div>
+                                ` : ''}
+                                ${data.signals.technical.details.moving_averages.sma_50 ? `
+                                <div class="metric">
+                                    <span class="metric-label">50-Day SMA</span>
+                                    <span class="metric-value">
+                                        $${data.signals.technical.details.moving_averages.sma_50.value.toLocaleString()}
+                                        <span style="color: ${data.signals.technical.details.moving_averages.sma_50.price_vs_ma === 'above' ? 'green' : 'red'};">
+                                            ${data.signals.technical.details.moving_averages.sma_50.price_vs_ma === 'above' ? '↑' : '↓'}
+                                            ${Math.abs(data.signals.technical.details.moving_averages.sma_50.distance_pct)}%
+                                        </span>
+                                    </span>
+                                </div>
+                                ` : ''}
+                                ${data.signals.technical.details.moving_averages.ema_20 ? `
+                                <div class="metric">
+                                    <span class="metric-label">20-Day EMA</span>
+                                    <span class="metric-value">
+                                        $${data.signals.technical.details.moving_averages.ema_20.value.toLocaleString()}
+                                        <span style="color: ${data.signals.technical.details.moving_averages.ema_20.price_vs_ma === 'above' ? 'green' : 'red'};">
+                                            ${data.signals.technical.details.moving_averages.ema_20.price_vs_ma === 'above' ? '↑' : '↓'}
+                                            ${Math.abs(data.signals.technical.details.moving_averages.ema_20.distance_pct)}%
+                                        </span>
+                                    </span>
+                                </div>
+                                ` : ''}
                             </div>
                             ` : ''}
-                            ${data.signals.technical.details.ma_crossovers.death_cross ? `
-                            <div class="metric">
-                                <span class="metric-label">☠️ Death Cross</span>
-                                <span class="metric-value" style="color: red; font-weight: bold;">DETECTED!</span>
+
+                            ${data.signals.technical.details.ma_crossovers && (data.signals.technical.details.ma_crossovers.golden_cross || data.signals.technical.details.ma_crossovers.death_cross) ? `
+                            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                                ${data.signals.technical.details.ma_crossovers.golden_cross ? `
+                                <div class="metric">
+                                    <span class="metric-label">🌟 Golden Cross</span>
+                                    <span class="metric-value" style="color: green; font-weight: bold;">DETECTED!</span>
+                                </div>
+                                <p style="font-size: 0.9em; color: #666; margin-top: 5px;">50 SMA crossed above 200 SMA - Strong bull signal</p>
+                                ` : ''}
+                                ${data.signals.technical.details.ma_crossovers.death_cross ? `
+                                <div class="metric">
+                                    <span class="metric-label">☠️ Death Cross</span>
+                                    <span class="metric-value" style="color: red; font-weight: bold;">DETECTED!</span>
+                                </div>
+                                <p style="font-size: 0.9em; color: #666; margin-top: 5px;">50 SMA crossed below 200 SMA - Strong bear signal</p>
+                                ` : ''}
                             </div>
                             ` : ''}
-                            <div class="metric">
-                                <span class="metric-label">Recommendation</span>
-                                <span class="metric-value">${data.signals.technical.details.ma_trend.recommendation.toUpperCase()}</span>
-                            </div>
                         </div>
                         ` : ''}
 

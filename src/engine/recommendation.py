@@ -81,7 +81,10 @@ class RecommendationEngine:
                     'weight': self.technical_weight,
                     'details': {
                         'rsi': technical_analysis['rsi'],
-                        'macd': technical_analysis['macd']
+                        'macd': technical_analysis['macd'],
+                        'ma_trend': technical_analysis.get('ma_trend'),
+                        'ma_crossovers': technical_analysis.get('ma_crossovers'),
+                        'moving_averages': technical_analysis.get('moving_averages')
                     }
                 },
                 'sentiment': {

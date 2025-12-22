@@ -22,14 +22,15 @@ class TechnicalAnalyzer:
             macd_slow: MACD slow EMA period (default: 26)
             macd_signal: MACD signal line period (default: 9)
             sma_periods: SMA periods to calculate (default: [20, 50, 100, 200])
-            ema_periods: EMA periods to calculate (default: [9, 21, 50, 100, 200])
+            ema_periods: EMA periods to calculate (default: [9, 20, 21, 50, 100, 147, 200])
+                         Note: 147 days = 21 weeks (Bull Market Support Band)
         """
         self.rsi_period = rsi_period
         self.macd_fast = macd_fast
         self.macd_slow = macd_slow
         self.macd_signal = macd_signal
         self.sma_periods = sma_periods or [20, 50, 100, 200]
-        self.ema_periods = ema_periods or [9, 21, 50, 100, 200]
+        self.ema_periods = ema_periods or [9, 20, 21, 50, 100, 147, 200]  # Added 20, 147 (21-week)
 
     def calculate_rsi(self, data: pd.DataFrame, column: str = 'close') -> pd.Series:
         """
