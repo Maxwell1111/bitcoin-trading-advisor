@@ -37,9 +37,10 @@ class RecommendationEngine:
         if close_prices is None or len(close_prices) < 30:
             return "Not enough data for divergence check."
 
-        recent_prices = close_prices.tail(30)
-        max_price = recent_prices.max()
-        current_price = recent_prices.iloc[-1]
+        # Use standard list operations instead of pandas methods
+        recent_prices = close_prices[-30:]
+        max_price = max(recent_prices)
+        current_price = recent_prices[-1]
 
         # A very basic check: is price at a high but sentiment is low?
         if current_price >= max_price and reddit_sentiment_score < 0.5:
