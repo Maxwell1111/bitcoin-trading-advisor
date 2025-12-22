@@ -79,10 +79,27 @@ async def root():
             "endpoints": {
                 "health": "/health",
                 "docs": "/docs",
+                "dashboard": "/dashboard",
                 "recommendation": "/api/recommendation",
-                "price": "/api/price"
+                "price": "/api/price",
+                "chart_data": "/api/chart-data"
             }
         }
+
+
+@app.get("/dashboard")
+async def dashboard():
+    """Serve the advanced dashboard with charts"""
+    static_dir = Path(__file__).parent.parent.parent / "static"
+    dashboard_file = static_dir / "dashboard.html"
+
+    if dashboard_file.exists():
+        return FileResponse(dashboard_file)
+    else:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Dashboard not found"}
+        )
 
 
 @app.get("/health")
@@ -252,6 +269,66 @@ async def get_sentiment_analysis(days: int = 7, max_articles: int = 50, use_mock
         results = sentiment_analyzer.analyze_articles(news_articles)
 
         return results
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+
+@app.get("/api/chart-data")
+async def get_chart_data(days: int = 180):
+    """
+    Get historical price data with moving averages for charting
+
+    Parameters:
+    - days: Number of days of historical data (default: 180)
+
+    Returns:
+    - dates: List of dates in ISO format
+    - price: Bitcoin closing prices
+    - ema_20: 20-day Exponential Moving Average
+    - sma_50: 50-day Simple Moving Average
+    - sma_200: 200-day Simple Moving Average
+    - ema_21week: 21-week EMA (Bull Market Support Band)
+    """
+    try:
+        # Fetch more data than requested to ensure we have enough for 200 SMA calculation
+        fetch_days = max(days + 200, 400)
+
+        price_fetcher = PriceFetcher(provider="yfinance")
+        historical_data = price_fetcher.fetch_historical_data(days=fetch_days)
+
+        # Calculate moving averages
+        tech_analyzer = TechnicalAnalyzer()
+
+        # Calculate EMAs
+        ema_20 = tech_analyzer.calculate_ema(historical_data, 20)
+        ema_21week = tech_analyzer.calculate_ema(historical_data, 147)  # 21 weeks * 7 days
+
+        # Calculate SMAs
+        sma_50 = tech_analyzer.calculate_sma(historical_data, 50)
+        sma_200 = tech_analyzer.calculate_sma(historical_data, 200)
+
+        # Get the most recent 'days' worth of data
+        historical_data = historical_data.tail(days)
+        ema_20 = ema_20.tail(days)
+        ema_21week = ema_21week.tail(days)
+        sma_50 = sma_50.tail(days)
+        sma_200 = sma_200.tail(days)
+
+        # Prepare response data
+        dates = historical_data.index.strftime('%Y-%m-%d').tolist()
+
+        return {
+            "dates": dates,
+            "price": historical_data['close'].round(2).tolist(),
+            "ema_20": ema_20.round(2).fillna(None).tolist(),
+            "sma_50": sma_50.round(2).fillna(None).tolist(),
+            "sma_200": sma_200.round(2).fillna(None).tolist(),
+            "ema_21week": ema_21week.round(2).fillna(None).tolist()
+        }
 
     except Exception as e:
         return JSONResponse(

@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Trading Dashboard - Advanced Technical Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .nav-tab {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .nav-tab:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .nav-tab.active {
+            background: white;
+            color: #667eea;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 500px;
+            margin: 20px 0;
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .chart-btn {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .chart-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .chart-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .price-display {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 10px;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .price-display h2 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+
+        .price-display .price {
+            font-size: 3em;
+            font-weight: bold;
+        }
+
+        .edu-section {
+            margin-top: 30px;
+        }
+
+        .edu-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 2em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .edu-section h3 {
+            color: #764ba2;
+            margin: 25px 0 15px 0;
+            font-size: 1.5em;
+        }
+
+        .edu-section p {
+            line-height: 1.8;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .edu-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-left: 4px solid #667eea;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .edu-box.warning {
+            border-left-color: #f5576c;
+            background: #fff3f3;
+        }
+
+        .edu-box.success {
+            border-left-color: #38ef7d;
+            background: #f0fff4;
+        }
+
+        .ma-legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .ma-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .ma-color {
+            width: 30px;
+            height: 4px;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+
+        .ma-info {
+            flex: 1;
+        }
+
+        .ma-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .ma-desc {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+        }
+
+        .footer a {
+            color: white;
+            text-decoration: underline;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-value.bullish {
+            color: #38ef7d;
+        }
+
+        .stat-value.bearish {
+            color: #f5576c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Bitcoin Trading Dashboard</h1>
+            <p>Professional Technical Analysis with Moving Averages</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('chart')">📈 Chart & Analysis</button>
+            <button class="nav-tab" onclick="showTab('education')">🎓 Learn</button>
+            <button class="nav-tab" onclick="window.location.href='/'">🤖 AI Advisor</button>
+        </div>
+
+        <div id="chartTab">
+            <div class="card">
+                <div id="priceDisplay" class="price-display">
+                    <h2>Current Bitcoin Price</h2>
+                    <div class="price" id="currentPrice">Loading...</div>
+                </div>
+
+                <h2 style="color: #667eea; margin-bottom: 20px;">Bitcoin Price & Moving Averages</h2>
+
+                <div class="chart-controls">
+                    <button class="chart-btn active" onclick="changeTimeframe(30)">30 Days</button>
+                    <button class="chart-btn" onclick="changeTimeframe(90)">90 Days</button>
+                    <button class="chart-btn" onclick="changeTimeframe(180)">180 Days</button>
+                    <button class="chart-btn" onclick="changeTimeframe(365)">1 Year</button>
+                </div>
+
+                <div class="ma-legend">
+                    <div class="ma-item">
+                        <div class="ma-color" style="background: #FF6384;"></div>
+                        <div class="ma-info">
+                            <div class="ma-name">Bitcoin Price</div>
+                            <div class="ma-desc">Current BTC/USD</div>
+                        </div>
+                    </div>
+                    <div class="ma-item">
+                        <div class="ma-color" style="background: #36A2EB;"></div>
+                        <div class="ma-info">
+                            <div class="ma-name">20-Day EMA</div>
+                            <div class="ma-desc">Short-term momentum</div>
+                        </div>
+                    </div>
+                    <div class="ma-item">
+                        <div class="ma-color" style="background: #FFCE56;"></div>
+                        <div class="ma-info">
+                            <div class="ma-name">50-Day SMA</div>
+                            <div class="ma-desc">Medium-term trend</div>
+                        </div>
+                    </div>
+                    <div class="ma-item">
+                        <div class="ma-color" style="background: #4BC0C0;"></div>
+                        <div class="ma-info">
+                            <div class="ma-name">200-Day SMA</div>
+                            <div class="ma-desc">Macro trend indicator</div>
+                        </div>
+                    </div>
+                    <div class="ma-item">
+                        <div class="ma-color" style="background: #9966FF;"></div>
+                        <div class="ma-info">
+                            <div class="ma-name">21-Week EMA</div>
+                            <div class="ma-desc">Bull Market Support</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="btcChart"></canvas>
+                </div>
+
+                <div id="loadingChart" class="loading">Loading chart data</div>
+
+                <div class="stat-grid" id="maStats" style="display: none;">
+                    <div class="stat-card">
+                        <div class="stat-label">Price vs 200 SMA</div>
+                        <div class="stat-value" id="stat200"></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Price vs 50 SMA</div>
+                        <div class="stat-value" id="stat50"></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Price vs 20 EMA</div>
+                        <div class="stat-value" id="stat20"></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">21-Week EMA Status</div>
+                        <div class="stat-value" id="stat21w"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="educationTab" style="display: none;">
+            <div class="card edu-section">
+                <h2>📚 Understanding Bitcoin's Moving Averages</h2>
+
+                <p>Moving averages are among the most powerful and reliable indicators in technical analysis. They smooth out price action and help identify trends, support/resistance levels, and potential reversal points. For Bitcoin, certain moving averages have proven to be remarkably accurate over multiple market cycles.</p>
+
+                <h3>🔴 The 200-Day SMA: The Ultimate Macro Trend Filter</h3>
+
+                <p>The 200-day Simple Moving Average is the single most important long-term indicator for Bitcoin traders and investors.</p>
+
+                <div class="edu-box success">
+                    <strong>📈 Above 200 SMA = Macro Bull Market</strong>
+                    <p>Historically, when Bitcoin trades above its 200-day SMA, it signals a macro bull market. During these periods, the probability of continued upward movement is statistically much higher. The 200 SMA acts as support during corrections.</p>
+                </div>
+
+                <div class="edu-box warning">
+                    <strong>📉 Below 200 SMA = Crypto Winter Territory</strong>
+                    <p>When Bitcoin falls below the 200-day SMA and stays there, it has historically preceded extended bear markets or "crypto winters." The 2018 bear market and the 2022 downturn both showed this pattern. During these periods, the 200 SMA acts as resistance.</p>
+                </div>
+
+                <div class="edu-box">
+                    <strong>🎯 Mean Reversion</strong>
+                    <p>The 200-day SMA acts as a "mean reversion" point. When Bitcoin deviates significantly from this line (either above or below), it tends to eventually return to it. Extreme deviations (>50% above or below) often mark major tops or bottoms.</p>
+                </div>
+
+                <h3>🟡 The 50-Day SMA: The Line in the Sand</h3>
+
+                <p>The 50-day SMA serves as a medium-term trend indicator and is crucial for identifying shorter-term trend changes.</p>
+
+                <div class="edu-box">
+                    <strong>Key Characteristics:</strong>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>Acts as dynamic support during uptrends</li>
+                        <li>Acts as resistance during downtrends</li>
+                        <li>Breaking above/below often signals momentum shifts</li>
+                        <li>Works best in conjunction with the 200-day SMA</li>
+                    </ul>
+                </div>
+
+                <h3>⭐ Golden Cross & Death Cross</h3>
+
+                <p>These are among the most famous signals in technical analysis, involving the 50-day and 200-day SMAs.</p>
+
+                <div class="edu-box success">
+                    <strong>🌟 Golden Cross (Ultra Bullish)</strong>
+                    <p>Occurs when the 50-day SMA crosses <strong>above</strong> the 200-day SMA. This is a lagging indicator but historically very reliable for confirming major bull trends. Bitcoin's golden crosses in 2015, 2019, and 2020 all preceded significant rallies.</p>
+                    <p><em>Note: Because it's a lagging indicator, much of the initial move may have already occurred by the time the cross happens. However, it confirms the trend change.</em></p>
+                </div>
+
+                <div class="edu-box warning">
+                    <strong>☠️ Death Cross (Major Warning)</strong>
+                    <p>Occurs when the 50-day SMA crosses <strong>below</strong> the 200-day SMA. This signals a potential extended bearish period. The 2018 and 2022 death crosses both led to further downside in Bitcoin's price.</p>
+                </div>
+
+                <h3>🔵 The 20-Day EMA: Short-Term Momentum</h3>
+
+                <p>The 20-day Exponential Moving Average is excellent for catching short-term trends and momentum shifts.</p>
+
+                <div class="edu-box">
+                    <strong>Why EMA instead of SMA?</strong>
+                    <p>EMAs give more weight to recent prices, making them more responsive to new information. The 20-day EMA is particularly useful for:
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>Short-term trend identification</li>
+                        <li>Quick entry/exit signals</li>
+                        <li>Detecting early momentum changes</li>
+                    </ul>
+                    </p>
+                </div>
+
+                <h3>🟣 The 21-Week EMA: The Bull Market Support Band</h3>
+
+                <p>This is one of Bitcoin's most reliable indicators, popularized by technical analyst Philip Swift.</p>
+
+                <div class="edu-box success">
+                    <strong>Historical Performance:</strong>
+                    <p>During bull markets, Bitcoin has repeatedly used the 21-week EMA as support. When price pulls back to this line, it often presents high-probability buying opportunities. Notable examples:</p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>2017 Bull Run:</strong> Multiple successful tests</li>
+                        <li><strong>2020-2021 Bull Run:</strong> Nearly perfect support until the final peak</li>
+                        <li><strong>2023 Recovery:</strong> Respected again during recovery</li>
+                    </ul>
+                </div>
+
+                <div class="edu-box warning">
+                    <strong>⚠️ Break Below = Major Warning</strong>
+                    <p>When Bitcoin closes a week below the 21-week EMA during a bull market, it's often one of the first signs that the bull run may be ending. However, one week below is not enough - look for sustained breaks (2-3 weeks) to confirm.</p>
+                </div>
+
+                <h3>🎓 How to Use Moving Averages Together</h3>
+
+                <div class="edu-box">
+                    <strong>The Complete Picture:</strong>
+                    <p><strong>1. Start with the 200-day SMA:</strong> Determine if we're in a macro bull or bear market</p>
+                    <p><strong>2. Check the 50-day SMA:</strong> Identify medium-term trend direction</p>
+                    <p><strong>3. Watch for crosses:</strong> Golden Cross = bullish, Death Cross = bearish</p>
+                    <p><strong>4. Use 20-day EMA:</strong> For timing entries/exits in the short term</p>
+                    <p><strong>5. Monitor 21-week EMA:</strong> For identifying high-probability pullback opportunities in bull markets</p>
+                </div>
+
+                <h3>⚡ Important Caveats</h3>
+
+                <div class="edu-box warning">
+                    <strong>No Indicator is Perfect:</strong>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>Lagging Nature:</strong> All moving averages are lagging indicators - they tell you what has happened, not what will happen</li>
+                        <li><strong>Whipsaws:</strong> In sideways/choppy markets, MAs can give false signals</li>
+                        <li><strong>Not Foolproof:</strong> Even the 200-day SMA and 21-week EMA have failed occasionally</li>
+                        <li><strong>Combine with Other Analysis:</strong> Always use MAs alongside other indicators, fundamentals, and market context</li>
+                        <li><strong>Bitcoin's Volatility:</strong> Bitcoin can deviate significantly from MAs due to its high volatility</li>
+                    </ul>
+                </div>
+
+                <h3>📊 Practical Trading Strategies</h3>
+
+                <div class="edu-box">
+                    <strong>Conservative Long-Term Strategy:</strong>
+                    <p>• Buy when Bitcoin is above 200-day SMA<br>
+                    • Consider taking profits when extremely extended above 200 SMA (>100%)<br>
+                    • Reduce position size when Bitcoin breaks below 200 SMA<br>
+                    • Be patient - this is a macro strategy that plays out over months/years</p>
+                </div>
+
+                <div class="edu-box">
+                    <strong>Active Bull Market Strategy:</strong>
+                    <p>• Once confirmed in a bull market (above 200 SMA with Golden Cross)<br>
+                    • Use 21-week EMA retests as buying opportunities<br>
+                    • Use 20-day EMA for short-term trend confirmation<br>
+                    • Exit if we get a sustained weekly close below 21-week EMA</p>
+                </div>
+
+                <h3>🔮 Current Market Context</h3>
+
+                <p>When analyzing Bitcoin's current position relative to these moving averages, consider:</p>
+
+                <ul style="margin-left: 20px; line-height: 2;">
+                    <li>How long has it been above/below each MA?</li>
+                    <li>What percentage away from each MA is the current price?</li>
+                    <li>Are multiple MAs clustering (strong support/resistance)?</li>
+                    <li>Is the slope of each MA positive (bullish) or negative (bearish)?</li>
+                    <li>Are the MAs spreading apart (trending) or converging (consolidating)?</li>
+                </ul>
+
+                <div class="edu-box" style="margin-top: 30px; border-left-color: #9966FF;">
+                    <strong>💡 Remember:</strong>
+                    <p>Moving averages are tools, not crystal balls. They work best when combined with:
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>Volume analysis</li>
+                        <li>Market sentiment and news</li>
+                        <li>On-chain metrics (for Bitcoin specifically)</li>
+                        <li>Other technical indicators (RSI, MACD, etc.)</li>
+                        <li>Risk management and position sizing</li>
+                    </ul>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>⚠️ <strong>Disclaimer:</strong> This is for educational purposes only. Not financial advice. Always do your own research before investing.</p>
+            <p><a href="/docs" target="_blank">API Documentation</a> | <a href="https://github.com/Maxwell1111/bitcoin-trading-advisor" target="_blank">GitHub</a></p>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let currentTimeframe = 180;
+
+        // Tab switching
+        function showTab(tabName) {
+            document.getElementById('chartTab').style.display = tabName === 'chart' ? 'block' : 'none';
+            document.getElementById('educationTab').style.display = tabName === 'education' ? 'block' : 'none';
+
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        // Get current price
+        async function getCurrentPrice() {
+            try {
+                const response = await fetch('/api/price');
+                const data = await response.json();
+                document.getElementById('currentPrice').textContent =
+                    '$' + data.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            } catch (error) {
+                document.getElementById('currentPrice').textContent = 'Error loading price';
+                console.error('Error fetching price:', error);
+            }
+        }
+
+        // Change timeframe
+        function changeTimeframe(days) {
+            currentTimeframe = days;
+
+            // Update button states
+            document.querySelectorAll('.chart-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Reload chart
+            loadChartData();
+        }
+
+        // Load chart data
+        async function loadChartData() {
+            document.getElementById('loadingChart').style.display = 'block';
+            if (chart) {
+                chart.destroy();
+            }
+
+            try {
+                const response = await fetch(`/api/chart-data?days=${currentTimeframe}`);
+                const data = await response.json();
+
+                document.getElementById('loadingChart').style.display = 'none';
+                document.getElementById('maStats').style.display = 'grid';
+
+                // Update stats
+                updateStats(data);
+
+                // Create chart
+                createChart(data);
+            } catch (error) {
+                document.getElementById('loadingChart').innerHTML = `<p style="color: red;">Error loading chart: ${error.message}</p>`;
+                console.error('Error loading chart data:', error);
+            }
+        }
+
+        function updateStats(data) {
+            const latest = data.dates.length - 1;
+            const price = data.price[latest];
+            const sma200 = data.sma_200[latest];
+            const sma50 = data.sma_50[latest];
+            const ema20 = data.ema_20[latest];
+            const ema21w = data.ema_21week[latest];
+
+            function formatStat(current, ma) {
+                if (!ma) return 'N/A';
+                const diff = ((current / ma - 1) * 100).toFixed(1);
+                const above = current > ma;
+                return `${above ? '↑' : '↓'} ${Math.abs(diff)}%`;
+            }
+
+            function getClass(current, ma) {
+                return current > ma ? 'bullish' : 'bearish';
+            }
+
+            const stat200 = document.getElementById('stat200');
+            stat200.textContent = formatStat(price, sma200);
+            stat200.className = 'stat-value ' + getClass(price, sma200);
+
+            const stat50 = document.getElementById('stat50');
+            stat50.textContent = formatStat(price, sma50);
+            stat50.className = 'stat-value ' + getClass(price, sma50);
+
+            const stat20 = document.getElementById('stat20');
+            stat20.textContent = formatStat(price, ema20);
+            stat20.className = 'stat-value ' + getClass(price, ema20);
+
+            const stat21w = document.getElementById('stat21w');
+            stat21w.textContent = formatStat(price, ema21w);
+            stat21w.className = 'stat-value ' + getClass(price, ema21w);
+        }
+
+        function createChart(data) {
+            const ctx = document.getElementById('btcChart').getContext('2d');
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.dates,
+                    datasets: [
+                        {
+                            label: 'Bitcoin Price',
+                            data: data.price,
+                            borderColor: '#FF6384',
+                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.1,
+                            pointRadius: 0,
+                            order: 1
+                        },
+                        {
+                            label: '20-Day EMA',
+                            data: data.ema_20,
+                            borderColor: '#36A2EB',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            tension: 0.1,
+                            pointRadius: 0,
+                            fill: false,
+                            order: 2
+                        },
+                        {
+                            label: '50-Day SMA',
+                            data: data.sma_50,
+                            borderColor: '#FFCE56',
+                            borderWidth: 2,
+                            tension: 0.1,
+                            pointRadius: 0,
+                            fill: false,
+                            order: 3
+                        },
+                        {
+                            label: '200-Day SMA',
+                            data: data.sma_200,
+                            borderColor: '#4BC0C0',
+                            borderWidth: 3,
+                            tension: 0.1,
+                            pointRadius: 0,
+                            fill: false,
+                            order: 4
+                        },
+                        {
+                            label: '21-Week EMA',
+                            data: data.ema_21week,
+                            borderColor: '#9966FF',
+                            borderWidth: 2,
+                            borderDash: [10, 5],
+                            tension: 0.1,
+                            pointRadius: 0,
+                            fill: false,
+                            order: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 15,
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += '$' + context.parsed.y.toLocaleString('en-US', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        });
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: currentTimeframe <= 30 ? 'day' : currentTimeframe <= 90 ? 'week' : 'month'
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize on page load
+        getCurrentPrice();
+        loadChartData();
+
+        // Refresh price every 60 seconds
+        setInterval(getCurrentPrice, 60000);
+    </script>
+</body>
+</html>
