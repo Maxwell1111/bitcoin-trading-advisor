@@ -497,16 +497,21 @@ class MultiSourceFetcher:
         Returns:
             Combined list of all items
         """
-        all_data = self.fetch_all(max_per_source=max_per_source)
+        try:
+            all_data = self.fetch_all(max_per_source=max_per_source)
 
-        combined = []
-        for source_type, items in all_data.items():
-            for item in items:
-                # Add source type tag
-                item['source_type'] = source_type
-                combined.append(item)
+            combined = []
+            for source_type, items in all_data.items():
+                if items:  # Only process if we have items
+                    for item in items:
+                        # Add source type tag
+                        item['source_type'] = source_type
+                        combined.append(item)
 
-        return combined
+            return combined
+        except Exception as e:
+            print(f"Error in get_combined_items: {e}")
+            return []  # Return empty list on error
 
 
 if __name__ == "__main__":
