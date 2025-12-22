@@ -11,6 +11,7 @@ from typing import Optional, Dict, Any
 import sys
 from pathlib import Path
 import os
+import pandas as pd
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -321,13 +322,18 @@ async def get_chart_data(days: int = 180):
         # Prepare response data
         dates = historical_data.index.strftime('%Y-%m-%d').tolist()
 
+        # Convert to list and replace NaN with None for JSON serialization
+        def series_to_list(series):
+            """Convert pandas Series to list, replacing NaN with None"""
+            return [None if pd.isna(x) else round(float(x), 2) for x in series]
+
         return {
             "dates": dates,
-            "price": historical_data['close'].round(2).tolist(),
-            "ema_20": ema_20.round(2).fillna(None).tolist(),
-            "sma_50": sma_50.round(2).fillna(None).tolist(),
-            "sma_200": sma_200.round(2).fillna(None).tolist(),
-            "ema_21week": ema_21week.round(2).fillna(None).tolist()
+            "price": [round(float(x), 2) for x in historical_data['close']],
+            "ema_20": series_to_list(ema_20),
+            "sma_50": series_to_list(sma_50),
+            "sma_200": series_to_list(sma_200),
+            "ema_21week": series_to_list(ema_21week)
         }
 
     except Exception as e:
