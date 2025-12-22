@@ -424,6 +424,36 @@
                             </div>
                         </div>
 
+                        ${data.signals.technical.details.ma_trend ? `
+                        <div class="detail-card">
+                            <h3>📊 Moving Averages</h3>
+                            <div class="metric">
+                                <span class="metric-label">Trend</span>
+                                <span class="metric-value">${data.signals.technical.details.ma_trend.overall_trend.replace('_', ' ').toUpperCase()}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Bullish Signals</span>
+                                <span class="metric-value">${data.signals.technical.details.ma_trend.bullish_signals}/${data.signals.technical.details.ma_trend.bullish_signals + data.signals.technical.details.ma_trend.bearish_signals}</span>
+                            </div>
+                            ${data.signals.technical.details.ma_crossovers.golden_cross ? `
+                            <div class="metric">
+                                <span class="metric-label">🌟 Golden Cross</span>
+                                <span class="metric-value" style="color: green; font-weight: bold;">DETECTED!</span>
+                            </div>
+                            ` : ''}
+                            ${data.signals.technical.details.ma_crossovers.death_cross ? `
+                            <div class="metric">
+                                <span class="metric-label">☠️ Death Cross</span>
+                                <span class="metric-value" style="color: red; font-weight: bold;">DETECTED!</span>
+                            </div>
+                            ` : ''}
+                            <div class="metric">
+                                <span class="metric-label">Recommendation</span>
+                                <span class="metric-value">${data.signals.technical.details.ma_trend.recommendation.toUpperCase()}</span>
+                            </div>
+                        </div>
+                        ` : ''}
+
                         <div class="detail-card">
                             <h3>🎯 Price Targets</h3>
                             ${data.targets.target_1 ? `
@@ -464,6 +494,31 @@
                         <h3>💡 Analysis Reasoning</h3>
                         <p>${data.reasoning}</p>
                     </div>
+
+                    ${data.signals.technical.details.moving_averages ? `
+                    <div style="margin-top: 20px;">
+                        <h3 style="color: #667eea; margin-bottom: 15px;">📐 Key Moving Averages</h3>
+                        <div class="details" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                            ${Object.entries(data.signals.technical.details.moving_averages)
+                                .filter(([key, ma]) => [20, 50, 200].includes(ma.period))
+                                .map(([key, ma]) => `
+                                <div class="detail-card" style="padding: 15px;">
+                                    <h4 style="margin: 0 0 10px 0; color: #667eea;">${ma.type} ${ma.period}</h4>
+                                    <div class="metric" style="padding: 5px 0; border: none;">
+                                        <span class="metric-label">Value</span>
+                                        <span class="metric-value">$${ma.value.toLocaleString()}</span>
+                                    </div>
+                                    <div class="metric" style="padding: 5px 0; border: none;">
+                                        <span class="metric-label">Price vs MA</span>
+                                        <span class="metric-value" style="color: ${ma.price_vs_ma === 'above' ? 'green' : 'red'};">
+                                            ${ma.price_vs_ma.toUpperCase()} (${ma.distance_pct > 0 ? '+' : ''}${ma.distance_pct}%)
+                                        </span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
             `;
         }

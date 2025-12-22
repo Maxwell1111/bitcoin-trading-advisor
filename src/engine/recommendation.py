@@ -167,6 +167,32 @@ class RecommendationEngine:
         elif 'bearish' in macd_signal:
             reasons.append("MACD indicates bearish momentum")
 
+        # Moving average reasoning
+        if 'ma_trend' in technical:
+            ma_trend = technical['ma_trend']
+            trend = ma_trend['overall_trend']
+            bullish_ratio = ma_trend.get('bullish_ratio', 0.5)
+
+            if trend == 'strong_uptrend':
+                reasons.append(f"Price is in a strong uptrend ({bullish_ratio*100:.0f}% above key moving averages)")
+            elif trend == 'uptrend':
+                reasons.append(f"Price shows uptrend momentum (above {bullish_ratio*100:.0f}% of moving averages)")
+            elif trend == 'downtrend':
+                reasons.append(f"Price is in a downtrend (below {(1-bullish_ratio)*100:.0f}% of moving averages)")
+
+        # Moving average crossovers
+        if 'ma_crossovers' in technical:
+            crossovers = technical['ma_crossovers']
+            if crossovers.get('golden_cross'):
+                reasons.append("GOLDEN CROSS detected (50 SMA crossed above 200 SMA) - very bullish!")
+            elif crossovers.get('death_cross'):
+                reasons.append("DEATH CROSS detected (50 SMA crossed below 200 SMA) - very bearish!")
+
+            if crossovers.get('short_term_bullish_cross'):
+                reasons.append("Short-term bullish crossover (9 EMA above 21 EMA)")
+            elif crossovers.get('short_term_bearish_cross'):
+                reasons.append("Short-term bearish crossover (9 EMA below 21 EMA)")
+
         # Sentiment reasoning
         sent_overall = sentiment['overall_sentiment']
         article_count = sentiment['article_count']
