@@ -17,7 +17,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.data.price_fetcher import PriceFetcher
-from src.data.news_fetcher import NewsFetcher, MockNewsFetcher
+from src.data.news_fetcher import NewsFetcher, MockNewsFetcher, MultiSourceFetcher
 from src.analysis.technical import TechnicalAnalyzer
 from src.analysis.sentiment import SentimentAnalyzer
 from src.engine.recommendation import RecommendationEngine
@@ -181,23 +181,37 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
         current_price = price_fetcher.get_current_price()
         historical_data = price_fetcher.fetch_historical_data(days=request.days)
 
-        # Fetch news
+        # Fetch sentiment from multiple sources
         if request.use_mock:
             news_fetcher = MockNewsFetcher()
+            news_articles = news_fetcher.fetch_news(
+                keywords=['bitcoin', 'btc', 'cryptocurrency'],
+                days=request.news_days,
+                max_articles=request.max_articles
+            )
         else:
+            # Use multi-source fetcher (NewsAPI + Reddit + Twitter)
             try:
                 config = get_config()
-                api_key = config.get_api_key('newsapi')
-                news_fetcher = NewsFetcher(api_key=api_key, provider='newsapi')
-            except (ValueError, FileNotFoundError):
-                # Fall back to mock if no API key
-                news_fetcher = MockNewsFetcher()
+                newsapi_key = config.get_api_key('newsapi')
+            except:
+                newsapi_key = None
 
-        news_articles = news_fetcher.fetch_news(
-            keywords=['bitcoin', 'btc', 'cryptocurrency'],
-            days=request.news_days,
-            max_articles=request.max_articles
-        )
+            # Get Twitter token if available (optional)
+            try:
+                twitter_token = config.get_api_key('twitter_bearer_token')
+            except:
+                twitter_token = None
+
+            multi_fetcher = MultiSourceFetcher(
+                newsapi_key=newsapi_key,
+                twitter_bearer_token=twitter_token
+            )
+
+            # Fetch from all sources (NewsAPI + Reddit + Twitter if enabled)
+            news_articles = multi_fetcher.get_combined_items(
+                max_per_source=request.max_articles // 2  # Split quota between sources
+            )
 
         # Technical analysis
         tech_analyzer = TechnicalAnalyzer()
@@ -207,6 +221,14 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
         sentiment_analyzer = SentimentAnalyzer(analyzer_type='vader')
         sentiment_results = sentiment_analyzer.analyze_articles(news_articles)
 
+        # Add source breakdown to sentiment results
+        source_counts = {}
+        for article in news_articles:
+            source_type = article.get('source_type', 'news')
+            source_counts[source_type] = source_counts.get(source_type, 0) + 1
+
+        sentiment_results['sources_used'] = source_counts
+
         # Generate recommendation
         engine = RecommendationEngine(technical_weight=0.6, sentiment_weight=0.4)
         recommendation = engine.generate_recommendation(
@@ -214,6 +236,10 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
             sentiment_analysis=sentiment_results,
             current_price=current_price
         )
+
+        # Add sentiment sources to recommendation response
+        if 'signals' in recommendation and 'sentiment' in recommendation['signals']:
+            recommendation['signals']['sentiment']['sources'] = source_counts
 
         return RecommendationResponse(**recommendation)
 
@@ -248,26 +274,47 @@ async def get_technical_analysis(days: int = 100):
 
 @app.get("/api/sentiment")
 async def get_sentiment_analysis(days: int = 7, max_articles: int = 50, use_mock: bool = False):
-    """Get only sentiment analysis"""
+    """Get sentiment analysis from multiple sources (NewsAPI + Reddit + Twitter)"""
     try:
         if use_mock:
             news_fetcher = MockNewsFetcher()
+            news_articles = news_fetcher.fetch_news(
+                keywords=['bitcoin', 'btc', 'cryptocurrency'],
+                days=days,
+                max_articles=max_articles
+            )
         else:
+            # Get API keys
             try:
                 config = get_config()
-                api_key = config.get_api_key('newsapi')
-                news_fetcher = NewsFetcher(api_key=api_key, provider='newsapi')
-            except (ValueError, FileNotFoundError):
-                news_fetcher = MockNewsFetcher()
+                newsapi_key = config.get_api_key('newsapi')
+            except:
+                newsapi_key = None
 
-        news_articles = news_fetcher.fetch_news(
-            keywords=['bitcoin', 'btc', 'cryptocurrency'],
-            days=days,
-            max_articles=max_articles
-        )
+            try:
+                twitter_token = config.get_api_key('twitter_bearer_token')
+            except:
+                twitter_token = None
+
+            # Use multi-source fetcher
+            multi_fetcher = MultiSourceFetcher(
+                newsapi_key=newsapi_key,
+                twitter_bearer_token=twitter_token
+            )
+
+            news_articles = multi_fetcher.get_combined_items(max_per_source=max_articles // 2)
 
         sentiment_analyzer = SentimentAnalyzer(analyzer_type='vader')
         results = sentiment_analyzer.analyze_articles(news_articles)
+
+        # Add source breakdown
+        source_counts = {}
+        for article in news_articles:
+            source_type = article.get('source_type', 'unknown')
+            source_counts[source_type] = source_counts.get(source_type, 0) + 1
+
+        results['sources_used'] = source_counts
+        results['total_items'] = len(news_articles)
 
         return results
 

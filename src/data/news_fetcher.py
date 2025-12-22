@@ -1,11 +1,12 @@
 """
-Cryptocurrency news fetcher
+Cryptocurrency news fetcher - supports NewsAPI, Reddit, and Twitter/X
 """
 
 import requests
 from datetime import datetime, timedelta
 from typing import List, Dict
 import time
+import json
 
 
 class NewsFetcher:
@@ -233,6 +234,279 @@ class MockNewsFetcher(NewsFetcher):
         ]
 
         return mock_articles[:max_articles]
+
+
+class RedditFetcher:
+    """
+    Fetch Bitcoin sentiment from Reddit
+
+    Free API - no authentication needed for public data
+    Subreddits: r/Bitcoin, r/CryptoCurrency
+    """
+
+    def __init__(self):
+        """Initialize Reddit fetcher"""
+        self.base_url = "https://www.reddit.com"
+        # User agent required by Reddit API
+        self.headers = {
+            'User-Agent': 'BitcoinTradingAdvisor/1.0'
+        }
+
+    def fetch_posts(self, subreddits: List[str] = None, limit: int = 50,
+                    time_filter: str = 'day') -> List[Dict]:
+        """
+        Fetch hot posts from Bitcoin-related subreddits
+
+        Args:
+            subreddits: List of subreddits to fetch from (default: ['Bitcoin', 'CryptoCurrency'])
+            limit: Number of posts per subreddit (max 100)
+            time_filter: Time filter - 'hour', 'day', 'week', 'month', 'year', 'all'
+
+        Returns:
+            List of posts with title, text, score, url, created_time
+        """
+        if subreddits is None:
+            subreddits = ['Bitcoin', 'CryptoCurrency']
+
+        all_posts = []
+
+        for subreddit in subreddits:
+            try:
+                # Fetch hot posts from subreddit
+                url = f"{self.base_url}/r/{subreddit}/hot.json"
+                params = {
+                    'limit': min(limit, 100),  # Reddit API limit
+                    't': time_filter
+                }
+
+                response = requests.get(url, headers=self.headers, params=params, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+
+                # Parse posts
+                for post in data.get('data', {}).get('children', []):
+                    post_data = post.get('data', {})
+
+                    # Only include posts that mention bitcoin/btc/crypto
+                    title = post_data.get('title', '').lower()
+                    selftext = post_data.get('selftext', '').lower()
+
+                    if any(keyword in title or keyword in selftext
+                           for keyword in ['bitcoin', 'btc', 'crypto']):
+
+                        all_posts.append({
+                            'title': post_data.get('title', ''),
+                            'description': post_data.get('selftext', '')[:500],  # Limit length
+                            'content': post_data.get('selftext', ''),
+                            'url': f"https://reddit.com{post_data.get('permalink', '')}",
+                            'source': f"r/{subreddit}",
+                            'published_date': datetime.fromtimestamp(
+                                post_data.get('created_utc', 0)
+                            ).isoformat(),
+                            'author': post_data.get('author', ''),
+                            'score': post_data.get('score', 0),  # Reddit upvotes
+                            'num_comments': post_data.get('num_comments', 0)
+                        })
+
+                # Respect Reddit rate limits
+                time.sleep(1)
+
+            except Exception as e:
+                print(f"Warning: Error fetching from r/{subreddit}: {e}")
+                continue
+
+        # Sort by score (upvotes) to get most popular posts
+        all_posts.sort(key=lambda x: x.get('score', 0), reverse=True)
+
+        return all_posts[:limit]
+
+
+class TwitterFetcher:
+    """
+    Fetch Bitcoin sentiment from Twitter/X
+
+    REQUIRES: Twitter API v2 access ($100/month minimum)
+    To enable: Get Bearer Token from https://developer.twitter.com/
+    """
+
+    def __init__(self, bearer_token: str = None):
+        """
+        Initialize Twitter fetcher
+
+        Args:
+            bearer_token: Twitter API v2 Bearer Token (required)
+        """
+        self.bearer_token = bearer_token
+        self.enabled = bearer_token is not None and bearer_token != ""
+
+        if not self.enabled:
+            print("Twitter/X integration disabled - no API token provided")
+            print("To enable: Get Bearer Token from https://developer.twitter.com/")
+            print("Cost: $100/month for Basic tier")
+
+    def fetch_tweets(self, keywords: List[str] = None, max_results: int = 50) -> List[Dict]:
+        """
+        Fetch recent tweets about Bitcoin
+
+        Args:
+            keywords: Keywords to search (default: ['bitcoin', 'btc'])
+            max_results: Number of tweets (10-100)
+
+        Returns:
+            List of tweets with text, author, created_at, metrics
+        """
+        if not self.enabled:
+            return []
+
+        if keywords is None:
+            keywords = ['bitcoin', 'btc']
+
+        url = "https://api.twitter.com/2/tweets/search/recent"
+
+        # Build query
+        query = " OR ".join(keywords) + " -is:retweet lang:en"
+
+        headers = {
+            'Authorization': f'Bearer {self.bearer_token}'
+        }
+
+        params = {
+            'query': query,
+            'max_results': min(max_results, 100),
+            'tweet.fields': 'created_at,public_metrics,author_id',
+            'expansions': 'author_id',
+            'user.fields': 'username,verified'
+        }
+
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            # Parse tweets
+            tweets = []
+            users = {user['id']: user for user in data.get('includes', {}).get('users', [])}
+
+            for tweet in data.get('data', []):
+                author = users.get(tweet.get('author_id', ''), {})
+                metrics = tweet.get('public_metrics', {})
+
+                tweets.append({
+                    'title': tweet.get('text', '')[:100],  # First 100 chars as title
+                    'description': tweet.get('text', ''),
+                    'content': tweet.get('text', ''),
+                    'url': f"https://twitter.com/i/web/status/{tweet.get('id', '')}",
+                    'source': 'Twitter',
+                    'published_date': tweet.get('created_at', ''),
+                    'author': author.get('username', ''),
+                    'verified': author.get('verified', False),
+                    'likes': metrics.get('like_count', 0),
+                    'retweets': metrics.get('retweet_count', 0)
+                })
+
+            return tweets
+
+        except Exception as e:
+            print(f"Error fetching tweets: {e}")
+            return []
+
+
+class MultiSourceFetcher:
+    """
+    Fetch sentiment data from multiple sources
+
+    Sources:
+    - NewsAPI: Professional news articles
+    - Reddit: Community sentiment (FREE)
+    - Twitter: Real-time sentiment (requires API token)
+    """
+
+    def __init__(self, newsapi_key: str = None, twitter_bearer_token: str = None):
+        """
+        Initialize multi-source fetcher
+
+        Args:
+            newsapi_key: NewsAPI.org API key (optional, falls back to mock)
+            twitter_bearer_token: Twitter API Bearer Token (optional)
+        """
+        # Initialize all sources
+        self.news_fetcher = None
+        if newsapi_key:
+            try:
+                self.news_fetcher = NewsFetcher(api_key=newsapi_key, provider='newsapi')
+            except:
+                pass
+
+        self.reddit_fetcher = RedditFetcher()
+        self.twitter_fetcher = TwitterFetcher(bearer_token=twitter_bearer_token)
+
+    def fetch_all(self, max_per_source: int = 50) -> Dict[str, List[Dict]]:
+        """
+        Fetch from all available sources
+
+        Args:
+            max_per_source: Maximum items per source
+
+        Returns:
+            Dictionary with sources as keys and lists of items as values
+        """
+        results = {
+            'news': [],
+            'reddit': [],
+            'twitter': []
+        }
+
+        # Fetch from NewsAPI
+        if self.news_fetcher:
+            try:
+                results['news'] = self.news_fetcher.fetch_news(
+                    keywords=['bitcoin', 'btc', 'cryptocurrency'],
+                    days=7,
+                    max_articles=max_per_source
+                )
+            except Exception as e:
+                print(f"NewsAPI error: {e}")
+
+        # Fetch from Reddit (always available - FREE)
+        try:
+            results['reddit'] = self.reddit_fetcher.fetch_posts(
+                limit=max_per_source,
+                time_filter='day'
+            )
+        except Exception as e:
+            print(f"Reddit error: {e}")
+
+        # Fetch from Twitter (if enabled)
+        if self.twitter_fetcher.enabled:
+            try:
+                results['twitter'] = self.twitter_fetcher.fetch_tweets(
+                    max_results=max_per_source
+                )
+            except Exception as e:
+                print(f"Twitter error: {e}")
+
+        return results
+
+    def get_combined_items(self, max_per_source: int = 25) -> List[Dict]:
+        """
+        Get combined list of all items from all sources
+
+        Args:
+            max_per_source: Maximum items per source
+
+        Returns:
+            Combined list of all items
+        """
+        all_data = self.fetch_all(max_per_source=max_per_source)
+
+        combined = []
+        for source_type, items in all_data.items():
+            for item in items:
+                # Add source type tag
+                item['source_type'] = source_type
+                combined.append(item)
+
+        return combined
 
 
 if __name__ == "__main__":

@@ -468,9 +468,19 @@
                                 <span class="metric-value">${data.signals.sentiment.details.compound.toFixed(3)}</span>
                             </div>
                             <div class="metric">
-                                <span class="metric-label">Articles</span>
+                                <span class="metric-label">Total Items</span>
                                 <span class="metric-value">${data.signals.sentiment.details.article_count}</span>
                             </div>
+                            ${data.signals.sentiment.sources ? `
+                            <div class="metric">
+                                <span class="metric-label">Sources</span>
+                                <span class="metric-value">
+                                    ${data.signals.sentiment.sources.news ? `📰${data.signals.sentiment.sources.news}` : ''}
+                                    ${data.signals.sentiment.sources.reddit ? ` 🔴${data.signals.sentiment.sources.reddit}` : ''}
+                                    ${data.signals.sentiment.sources.twitter ? ` 🐦${data.signals.sentiment.sources.twitter}` : ''}
+                                </span>
+                            </div>
+                            ` : ''}
                             <div class="metric">
                                 <span class="metric-label">Recommendation</span>
                                 <span class="metric-value">${data.signals.sentiment.recommendation.toUpperCase()}</span>
