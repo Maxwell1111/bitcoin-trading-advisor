@@ -1,4 +1,0 @@
-{
-  "extends": "stylelint-config-standard",
-  "declaration-block-no-redundant-longhand-properties": false
-}

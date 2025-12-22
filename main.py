@@ -21,45 +21,15 @@ from src.engine.recommendation import RecommendationEngine
 from src.utils.config import get_config
 
 
-def main():
-    """Main function"""
-    parser = argparse.ArgumentParser(
-        description='Bitcoin Portfolio Advisor - Get trading recommendations'
-    )
-    parser.add_argument(
-        '--mock',
-        action='store_true',
-        help='Use mock data for testing (no API keys required)'
-    )
-    parser.add_argument(
-        '--days',
-        type=int,
-        default=100,
-        help='Number of days of historical price data (default: 100)'
-    )
-    parser.add_argument(
-        '--news-days',
-        type=int,
-        default=7,
-        help='Number of days of news to analyze (default: 7)'
-    )
-    parser.add_argument(
-        '--articles',
-        type=int,
-        default=50,
-        help='Maximum number of news articles to analyze (default: 50)'
-    )
-
-    args = parser.parse_args()
-
-    print("=" * 70)
-    print("BITCOIN PORTFOLIO ADVISOR".center(70))
-    print("=" * 70)
-    print()
-
+def get_trading_recommendation(
+    mock: bool, days: int, news_days: int, articles: int
+):
+    """
+    Fetches data, performs analysis, and returns a trading recommendation.
+    """
     try:
         # Load configuration
-        if not args.mock:
+        if not mock:
             print("Loading configuration...")
             config = get_config()
             print("✓ Configuration loaded")
@@ -74,13 +44,13 @@ def main():
         current_price = price_fetcher.get_current_price()
         print(f"✓ Current BTC Price: ${current_price:,.2f}")
 
-        historical_data = price_fetcher.fetch_historical_data(days=args.days)
+        historical_data = price_fetcher.fetch_historical_data(days=days)
         print(f"✓ Retrieved {len(historical_data)} days of historical data")
 
         # Step 2: Fetch news
         print("\n[2/5] Fetching cryptocurrency news...")
 
-        if args.mock or not config:
+        if mock or not config:
             news_fetcher = MockNewsFetcher()
             print("✓ Using mock news data")
         else:
@@ -94,8 +64,8 @@ def main():
 
         news_articles = news_fetcher.fetch_news(
             keywords=['bitcoin', 'btc', 'cryptocurrency'],
-            days=args.news_days,
-            max_articles=args.articles
+            days=news_days,
+            max_articles=articles
         )
         print(f"✓ Retrieved {len(news_articles)} news articles")
 
@@ -146,6 +116,62 @@ def main():
             current_price=current_price
         )
 
+        return recommendation, news_articles, sentiment_analyzer, engine
+
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        if mock:
+            print("\nEven in mock mode, an error occurred. Please check your installation.")
+        else:
+            print("\nTry running with --mock flag to test without API keys:")
+            print("  python main.py --mock")
+        sys.exit(1)
+
+
+def main():
+    """Main function"""
+    parser = argparse.ArgumentParser(
+        description='Bitcoin Portfolio Advisor - Get trading recommendations'
+    )
+    parser.add_argument(
+        '--mock',
+        action='store_true',
+        help='Use mock data for testing (no API keys required)'
+    )
+    parser.add_argument(
+        '--days',
+        type=int,
+        default=100,
+        help='Number of days of historical price data (default: 100)'
+    )
+    parser.add_argument(
+        '--news-days',
+        type=int,
+        default=7,
+        help='Number of days of news to analyze (default: 7)'
+    )
+    parser.add_argument(
+        '--articles',
+        type=int,
+        default=50,
+        help='Maximum number of news articles to analyze (default: 50)'
+    )
+
+    args = parser.parse_args()
+
+    print("=" * 70)
+    print("BITCOIN PORTFOLIO ADVISOR".center(70))
+    print("=" * 70)
+    print()
+
+    try:
+        recommendation, news_articles, sentiment_analyzer, engine = get_trading_recommendation(
+            mock=args.mock,
+            days=args.days,
+            news_days=args.news_days,
+            articles=args.articles,
+        )
+
         # Display results
         print("\n")
         print(engine.format_recommendation(recommendation))
@@ -171,11 +197,6 @@ def main():
         sys.exit(0)
     except Exception as e:
         print(f"\n❌ Error: {e}")
-        if args.mock:
-            print("\nEven in mock mode, an error occurred. Please check your installation.")
-        else:
-            print("\nTry running with --mock flag to test without API keys:")
-            print("  python main.py --mock")
         sys.exit(1)
 
 

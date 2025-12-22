@@ -11,7 +11,7 @@ from threading import Thread
 HERE = Path(__file__).parent
 WWW = HERE / "www"
 MAX_SPACE_NPM = 256
-APP_NAME = "mediabiasscorer"
+APP_NAME = "src.api"  # Changed to run the new API
 
 os.environ["NODE_OPTIONS"] = f"--max_old_space_size={MAX_SPACE_NPM}"
 
@@ -45,7 +45,7 @@ def run_background_process() -> subprocess.Popen:  # type: ignore
                 "--workers",
                 "8",
                 "--forwarded-allow-ips=*",
-                f"{APP_NAME}.app:app",  # TODO: programmatically pull this name
+                f"{APP_NAME}:app",  # TODO: programmatically pull this name
             ]
         )
         # Trap SIGINT (Ctrl-C) to call the cleanup function
@@ -89,33 +89,11 @@ def perform_npm_build() -> None:
     print("Front end built.")
 
 
-def run_background_tasks() -> None:
-    """Run the background tasks."""
-    data: list[subprocess.Popen] = list()
-
-    def kill_proc() -> None:
-        if data:
-            proc = data[0]
-            proc.kill()
-
-    atexit.register(kill_proc)
-    while True:
-        proc = subprocess.Popen(f"python -m {APP_NAME}.background_tasks", shell=True, cwd=HERE)
-        if len(data) == 0:
-            data.append(proc)
-        else:
-            data[0] = proc
-        while proc.poll() is None:
-            time.sleep(1)
-
-
 def main() -> None:
     # run npm build first
     # install first
     perform_npm_build()
 
-    background_task = Thread(target=run_background_tasks, daemon=True, name="background_tasks")
-    background_task.start()
     # Use the context manager to run and manage the background process
     process: subprocess.Popen
     with run_background_process() as process:
