@@ -251,6 +251,48 @@
             color: white;
             text-decoration: underline;
         }
+
+        .dashboard-banner {
+            background: linear-gradient(135deg, #f39c12 0%, #f5576c 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .dashboard-banner:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+        }
+
+        .dashboard-banner h2 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .dashboard-banner p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .dashboard-banner .features {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .dashboard-banner .feature {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -258,6 +300,17 @@
         <div class="header">
             <h1>🪙 Bitcoin Portfolio Advisor</h1>
             <p>AI-Powered Trading Recommendations with Sentiment & Technical Analysis</p>
+        </div>
+
+        <div class="dashboard-banner" onclick="window.location.href='/dashboard'">
+            <h2>📊 NEW: Professional Trading Dashboard</h2>
+            <p>Interactive charts with Moving Averages & Historical Analysis</p>
+            <div class="features">
+                <span class="feature">📈 200-Day SMA</span>
+                <span class="feature">🎯 21-Week EMA</span>
+                <span class="feature">⚡ Golden/Death Cross</span>
+                <span class="feature">📚 Educational Content</span>
+            </div>
         </div>
 
         <div class="card">
