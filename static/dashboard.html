@@ -305,35 +305,39 @@
 
                 <div class="ma-legend">
                     <div class="ma-item">
-                        <div class="ma-color" style="background: #FF6384;"></div>
+                        <div class="ma-color" style="background: #e74c3c;"></div>
                         <div class="ma-info">
                             <div class="ma-name">Bitcoin Price</div>
                             <div class="ma-desc">Current BTC/USD</div>
                         </div>
                     </div>
-                    <div class="ma-item">
-                        <div class="ma-color" style="background: #36A2EB;"></div>
+                    <div class="ma-item" style="cursor: pointer;" onclick="toggleDataset(1)">
+                        <input type="checkbox" id="toggle-ema20" checked style="margin-right: 8px;">
+                        <div class="ma-color" style="background: #3498db;"></div>
                         <div class="ma-info">
                             <div class="ma-name">20-Day EMA</div>
                             <div class="ma-desc">Short-term momentum</div>
                         </div>
                     </div>
-                    <div class="ma-item">
-                        <div class="ma-color" style="background: #FFCE56;"></div>
+                    <div class="ma-item" style="cursor: pointer;" onclick="toggleDataset(2)">
+                        <input type="checkbox" id="toggle-sma50" checked style="margin-right: 8px;">
+                        <div class="ma-color" style="background: #95a5a6;"></div>
                         <div class="ma-info">
                             <div class="ma-name">50-Day SMA</div>
                             <div class="ma-desc">Medium-term trend</div>
                         </div>
                     </div>
-                    <div class="ma-item">
-                        <div class="ma-color" style="background: #4BC0C0;"></div>
+                    <div class="ma-item" style="cursor: pointer;" onclick="toggleDataset(3)">
+                        <input type="checkbox" id="toggle-sma200" checked style="margin-right: 8px;">
+                        <div class="ma-color" style="background: #f39c12;"></div>
                         <div class="ma-info">
                             <div class="ma-name">200-Day SMA</div>
-                            <div class="ma-desc">Macro trend indicator</div>
+                            <div class="ma-desc">The Bull/Bear Line</div>
                         </div>
                     </div>
-                    <div class="ma-item">
-                        <div class="ma-color" style="background: #9966FF;"></div>
+                    <div class="ma-item" style="cursor: pointer;" onclick="toggleDataset(4)">
+                        <input type="checkbox" id="toggle-ema21w" checked style="margin-right: 8px;">
+                        <div class="ma-color" style="background: #2980b9;"></div>
                         <div class="ma-info">
                             <div class="ma-name">21-Week EMA</div>
                             <div class="ma-desc">Bull Market Support</div>
@@ -363,6 +367,129 @@
                     <div class="stat-card">
                         <div class="stat-label">21-Week EMA Status</div>
                         <div class="stat-value" id="stat21w"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Significance Section -->
+            <div class="card" style="margin-top: 30px;">
+                <h2 style="color: #667eea; margin-bottom: 25px; border-bottom: 3px solid #667eea; padding-bottom: 15px;">
+                    📊 The Significance of These Levels
+                </h2>
+
+                <div class="edu-section">
+                    <h3 style="color: #f39c12; display: flex; align-items: center;">
+                        <span style="width: 30px; height: 4px; background: #f39c12; margin-right: 10px; border-radius: 2px;"></span>
+                        The 200-Day SMA: The Ultimate Bull/Bear Divider
+                    </h3>
+                    <p>The 200-day Simple Moving Average is <strong>the single most important indicator</strong> for determining Bitcoin's macro trend. This is not speculation—it's backed by over a decade of price history.</p>
+
+                    <div class="edu-box success">
+                        <strong>📈 Above 200 SMA = Macro Bull Market</strong>
+                        <p>Historically, when Bitcoin breaks above and holds the 200-day SMA, it signals the transition from bear market to bull market. Notable examples:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                            <li><strong>2015-2017:</strong> After the 2014-2015 bear, BTC reclaimed the 200 SMA in late 2015, leading to the 2017 bull run to $20K</li>
+                            <li><strong>2019-2021:</strong> Reclaimed in April 2019, held through 2020, culminating in the 2021 rally to $69K</li>
+                            <li><strong>2023-2024:</strong> Reclaimed in January 2023, leading to the current cycle and new all-time highs</li>
+                        </ul>
+                    </div>
+
+                    <div class="edu-box warning">
+                        <strong>📉 Below 200 SMA = Crypto Winter</strong>
+                        <p>Conversely, when Bitcoin loses the 200-day SMA and remains below it for extended periods, <strong>"crypto winters"</strong> typically follow:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                            <li><strong>2018 Bear Market:</strong> Lost 200 SMA in March 2018, didn't reclaim until April 2019 (-83% peak to trough)</li>
+                            <li><strong>2022 Bear Market:</strong> Lost 200 SMA in May 2022, stayed below until January 2023 (-77% decline)</li>
+                        </ul>
+                        <p><em>Key insight: The longer Bitcoin stays below this line, the more severe the bear market tends to be.</em></p>
+                    </div>
+
+                    <h3 style="color: #2980b9; display: flex; align-items: center; margin-top: 35px;">
+                        <span style="width: 30px; height: 4px; background: #2980b9; margin-right: 10px; border-radius: 2px;"></span>
+                        The 21-Week EMA: Bull Market Support Band
+                    </h3>
+                    <p>The 21-week EMA is Bitcoin's most reliable support level during bull markets. This indicator was popularized by on-chain analyst <strong>Philip Swift</strong> and has proven remarkably accurate across multiple cycles.</p>
+
+                    <div class="edu-box success">
+                        <strong>🎯 Historical Performance in Bull Runs:</strong>
+                        <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                            <li><strong>2017 Bull Run:</strong> BTC tested the 21-week EMA multiple times during pullbacks (March, May, July, September) - each test provided a high-probability entry. The bull run didn't end until BTC broke decisively below this level in early 2018.</li>
+                            <li><strong>2020-2021 Bull Run:</strong> Nearly perfect support from July 2020 through April 2021. Every major correction (September 2020, January 2021, March 2021) found support at this level. Final break in May 2021 signaled the bull market peak.</li>
+                            <li><strong>2023-2024 Recovery:</strong> Since establishing the uptrend in early 2023, this level has been respected during healthy corrections, confirming we're in a bull market structure.</li>
+                        </ul>
+                    </div>
+
+                    <div class="edu-box warning">
+                        <strong>⚠️ The Warning Signal:</strong>
+                        <p>When Bitcoin closes a <strong>weekly candle</strong> below the 21-week EMA during an established bull market, it's historically been one of the first major warnings that the bull run may be maturing or ending. However:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px;">
+                            <li>A single weekly close below is not enough - look for 2-3 consecutive weeks</li>
+                            <li>This works in bull markets - it's not relevant during bear markets</li>
+                            <li>The break must be decisive (>5% below), not a brief wick</li>
+                        </ul>
+                    </div>
+
+                    <h3 style="color: #95a5a6; display: flex; align-items: center; margin-top: 35px;">
+                        <span style="width: 30px; height: 4px; background: #95a5a6; margin-right: 10px; border-radius: 2px;"></span>
+                        Golden Cross & Death Cross: The Industry Standard Signal
+                    </h3>
+                    <p>The crossover of the 50-day and 200-day SMAs is the most widely watched technical signal in all of financial markets, and Bitcoin is no exception.</p>
+
+                    <div class="edu-box success">
+                        <strong>🌟 Golden Cross (50 SMA crosses ABOVE 200 SMA):</strong>
+                        <p>This is a lagging but highly reliable confirmation that a bull trend has established. Bitcoin's historical Golden Crosses:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                            <li><strong>October 2015:</strong> Golden Cross formed → 2017 bull run (+5,000% from cross to peak)</li>
+                            <li><strong>April 2019:</strong> Golden Cross formed → 2020-2021 bull run (+1,100% from cross to peak)</li>
+                            <li><strong>February 2023:</strong> Golden Cross formed → Current bull cycle and new ATH</li>
+                        </ul>
+                        <p><em>Important: Because it's a lagging indicator, significant gains may have already occurred by the time the cross happens. However, it confirms the trend change and historically has been followed by much larger moves.</em></p>
+                    </div>
+
+                    <div class="edu-box warning">
+                        <strong>☠️ Death Cross (50 SMA crosses BELOW 200 SMA):</strong>
+                        <p>The opposite signal, warning of extended bearish conditions:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                            <li><strong>March 2018:</strong> Death Cross → Extended bear market through 2018</li>
+                            <li><strong>June 2022:</strong> Death Cross → Bear market continuation through Q4 2022</li>
+                        </ul>
+                        <p><em>Like the Golden Cross, this is a lagging indicator - much damage may already be done. However, it signals to stay cautious.</em></p>
+                    </div>
+
+                    <h3 style="color: #3498db; display: flex; align-items: center; margin-top: 35px;">
+                        <span style="width: 30px; height: 4px; background: #3498db; margin-right: 10px; border-radius: 2px;"></span>
+                        The 20-Day EMA: Short-Term Trend Confirmation
+                    </h3>
+                    <p>While not as historically significant as the longer-term MAs, the 20-day EMA is excellent for timing and short-term trend identification:</p>
+                    <ul style="margin-left: 20px; line-height: 1.8;">
+                        <li><strong>In Uptrends:</strong> Acts as dynamic support during minor pullbacks</li>
+                        <li><strong>In Downtrends:</strong> Acts as resistance during relief rallies</li>
+                        <li><strong>Crossovers:</strong> Price crossing above/below can signal momentum shifts</li>
+                        <li><strong>Best Use:</strong> Combine with longer-term MAs for entry/exit timing once the macro trend is established</li>
+                    </ul>
+
+                    <div class="edu-box" style="margin-top: 35px; border-left-color: #667eea;">
+                        <strong>💡 How to Use These Together:</strong>
+                        <ol style="margin-left: 20px; margin-top: 10px; line-height: 2;">
+                            <li><strong>Start with 200 SMA:</strong> Determine if we're in a macro bull (above) or bear (below) market</li>
+                            <li><strong>Check for Crosses:</strong> Is there a Golden Cross (bullish) or Death Cross (bearish)?</li>
+                            <li><strong>Bull Market Strategy:</strong> If above 200 SMA, use 21-week EMA retests as buying opportunities</li>
+                            <li><strong>Fine-Tune Timing:</strong> Use 20-day EMA for short-term entry/exit signals</li>
+                            <li><strong>Risk Management:</strong> If you're long and we break below 21-week EMA (weekly close), consider reducing exposure</li>
+                        </ol>
+                    </div>
+
+                    <div class="edu-box warning" style="margin-top: 20px;">
+                        <strong>⚠️ Critical Disclaimer:</strong>
+                        <p>While these moving averages have shown remarkable historical correlation with Bitcoin's bull and bear cycles, <strong>no indicator is perfect</strong>. Bitcoin is a highly volatile, 24/7 global market influenced by countless factors including:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px;">
+                            <li>Regulatory news and government actions</li>
+                            <li>Institutional adoption and ETF flows</li>
+                            <li>Macro economic conditions and Fed policy</li>
+                            <li>On-chain metrics and miner behavior</li>
+                            <li>Market sentiment and fear/greed cycles</li>
+                        </ul>
+                        <p style="margin-top: 15px;"><strong>Always use moving averages as part of a broader analysis strategy, never in isolation. Past performance does not guarantee future results.</strong></p>
                     </div>
                 </div>
             </div>
@@ -630,6 +757,19 @@
             stat21w.className = 'stat-value ' + getClass(price, ema21w);
         }
 
+        // Toggle dataset visibility
+        function toggleDataset(index) {
+            if (chart) {
+                const meta = chart.getDataSetMeta(index);
+                meta.hidden = !meta.hidden;
+                chart.update();
+
+                // Update checkbox
+                const checkboxes = ['toggle-ema20', 'toggle-sma50', 'toggle-sma200', 'toggle-ema21w'];
+                document.getElementById(checkboxes[index - 1]).checked = !meta.hidden;
+            }
+        }
+
         function createChart(data) {
             const ctx = document.getElementById('btcChart').getContext('2d');
 
@@ -641,17 +781,18 @@
                         {
                             label: 'Bitcoin Price',
                             data: data.price,
-                            borderColor: '#FF6384',
-                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
                             borderWidth: 3,
                             tension: 0.1,
                             pointRadius: 0,
+                            fill: true,
                             order: 1
                         },
                         {
                             label: '20-Day EMA',
                             data: data.ema_20,
-                            borderColor: '#36A2EB',
+                            borderColor: '#3498db',
                             borderWidth: 2,
                             borderDash: [5, 5],
                             tension: 0.1,
@@ -662,7 +803,7 @@
                         {
                             label: '50-Day SMA',
                             data: data.sma_50,
-                            borderColor: '#FFCE56',
+                            borderColor: '#95a5a6',
                             borderWidth: 2,
                             tension: 0.1,
                             pointRadius: 0,
@@ -670,21 +811,21 @@
                             order: 3
                         },
                         {
-                            label: '200-Day SMA',
+                            label: '200-Day SMA (Bull/Bear Line)',
                             data: data.sma_200,
-                            borderColor: '#4BC0C0',
-                            borderWidth: 3,
+                            borderColor: '#f39c12',
+                            borderWidth: 4,
                             tension: 0.1,
                             pointRadius: 0,
                             fill: false,
                             order: 4
                         },
                         {
-                            label: '21-Week EMA',
+                            label: '21-Week EMA (Bull Market Support)',
                             data: data.ema_21week,
-                            borderColor: '#9966FF',
-                            borderWidth: 2,
-                            borderDash: [10, 5],
+                            borderColor: '#2980b9',
+                            borderWidth: 3,
+                            borderDash: [8, 4],
                             tension: 0.1,
                             pointRadius: 0,
                             fill: false,
