@@ -164,8 +164,18 @@ class RecommendationEngine:
         return {
             'recommendation': recommendation,
             'confidence': round(confidence, 2),
-<<<<<<< HEAD
             'combined_score': round(combined_score, 3),
+            'reasoning': reasoning,
+            'current_price': current_price,
+            'timestamp': datetime.datetime.now().isoformat(),
+            'targets': targets,
+            'divergence_signal': divergence_signal,
+            'power_law_data': {
+                'fair_value': power_law_analysis['fair_value'],
+                'support_value': power_law_analysis['support_value'],
+                'resistance_value': power_law_analysis['resistance_value'],
+                'status': power_law_analysis['status']
+            },
             'signals': {
                 'technical': {
                     'recommendation': technical_rec,
@@ -187,25 +197,7 @@ class RecommendationEngine:
                                  (self.reddit_weight + self.news_weight), 3),
                     'weight': self.reddit_weight + self.news_weight,
                     'details': combined_sentiment
-                }
-            },
-            'current_price': current_price,
-            'targets': targets,
-            'reasoning': reasoning,
-            'divergence_signal': divergence_signal,
-            'timestamp': datetime.datetime.now().isoformat()
-=======
-            'reasoning': reasoning,
-            'current_price': current_price,
-            'timestamp': datetime.datetime.now().isoformat(),
-            'targets': targets,
-            'power_law_data': {
-                'fair_value': power_law_analysis['fair_value'],
-                'support_value': power_law_analysis['support_value'],
-                'resistance_value': power_law_analysis['resistance_value'],
-                'status': power_law_analysis['status']
-            },
-            'signals': {
+                },
                 'reddit_sentiment': {
                     'recommendation': reddit_rec,
                     'confidence': reddit_conf,
@@ -215,14 +207,8 @@ class RecommendationEngine:
                     'recommendation': news_rec,
                     'confidence': news_conf,
                     'details': news_sentiment_analysis
-                },
-                'technical': {
-                    'recommendation': technical_rec,
-                    'confidence': technical_conf,
-                    'details': technical_analysis
                 }
             }
->>>>>>> ea5a778 (feat: Implement Bitcoin Power Law model for macro analysis)
         }
 
 
