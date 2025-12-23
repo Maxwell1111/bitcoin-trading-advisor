@@ -27,6 +27,48 @@
             color: #8899a6;
             margin-bottom: 30px;
         }
+        .explanation {
+            background: #192734;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border: 1px solid #38444d;
+        }
+        .explanation h3 {
+            color: #1da1f2;
+            margin-top: 0;
+        }
+        .explanation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .explanation-item {
+            background: #0f1419;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .explanation-item h4 {
+            color: #1da1f2;
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }
+        .explanation-item p {
+            margin: 0;
+            color: #8899a6;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .key-insight {
+            background: #1a3a52;
+            border-left: 4px solid #1da1f2;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .key-insight strong {
+            color: #1da1f2;
+        }
         .stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -80,6 +122,44 @@
         <h1>📊 Bitcoin Trading Advisor - Backtest Results</h1>
         <p class="subtitle">Holistic Multi-Factor Analysis Performance</p>
 
+        <div class="explanation">
+            <h3>📖 What is This?</h3>
+            <p>This backtest tests the recommendation engine on <strong>historical data</strong> to see how it would have performed in the past.</p>
+
+            <div class="key-insight">
+                <strong>How it works:</strong> Every week for the past year, we ran the advisor as if we were living in that moment. We recorded what it recommended (Buy/Hold/Sell) and compared it to what actually happened to Bitcoin's price.
+            </div>
+
+            <div class="explanation-grid">
+                <div class="explanation-item">
+                    <h4>🎯 Composite Score</h4>
+                    <p><strong>Range:</strong> -1.00 to +1.00<br>
+                    <strong>Meaning:</strong> Weighted average of 5 factors<br>
+                    • +0.70+ = Strong Buy<br>
+                    • +0.30 to +0.70 = Buy<br>
+                    • -0.30 to +0.30 = Hold<br>
+                    • -0.70 to -0.30 = Sell<br>
+                    • -0.70- = Strong Sell</p>
+                </div>
+
+                <div class="explanation-item">
+                    <h4>📊 The 5 Factors</h4>
+                    <p><strong>RSI (20%):</strong> Overbought/oversold<br>
+                    <strong>Moving Avg (25%):</strong> Trend direction<br>
+                    <strong>Power Law (25%):</strong> Long-term value<br>
+                    <strong>MACD (15%):</strong> Momentum<br>
+                    <strong>Sentiment (15%):</strong> Market psychology</p>
+                </div>
+
+                <div class="explanation-item">
+                    <h4>📈 Your Results</h4>
+                    <p><strong>Conservative Strategy:</strong> 97% Hold signals<br>
+                    <strong>Interpretation:</strong> The advisor avoided overtrading during 2025's sideways market.<br>
+                    <strong>Accuracy:</strong> 23.7% of signals matched price movement</p>
+                </div>
+            </div>
+        </div>
+
         <div class="stats">
             <div class="stat-card">
                 <div class="stat-label">Period</div>
@@ -107,9 +187,32 @@
             </div>
         </div>
 
+        <div class="explanation">
+            <h3>Chart 1: Price vs Composite Score</h3>
+            <p><strong>What to look for:</strong> Does the score rise BEFORE price rises? That would mean the advisor is predicting upward movement. Does it fall before price falls? That's a warning signal.</p>
+        </div>
         <div class="chart" id="price-score-chart"></div>
+
+        <div class="explanation">
+            <h3>Chart 2: Composite Score Distribution</h3>
+            <p><strong>Color coding:</strong> Green bars = Buy signals, Gray = Hold, Red = Sell. The dashed lines show the thresholds (+0.7, +0.3, -0.3, -0.7).<br>
+            <strong>Your results:</strong> Almost all bars are gray (Hold) because 2025 was a sideways/consolidation year with no extreme signals.</p>
+        </div>
         <div class="chart" id="composite-chart"></div>
+
+        <div class="explanation">
+            <h3>Chart 3: Individual Factor Contributions</h3>
+            <p><strong>This shows each of the 5 factors BEFORE weighting.</strong> You can see which factors were bullish (positive) or bearish (negative) at different times.<br>
+            <strong>Key insight:</strong> When all 5 lines align (all positive or all negative), that creates a strong signal. When they diverge, you get Hold.</p>
+        </div>
         <div class="chart" id="factors-chart"></div>
+
+        <div class="explanation">
+            <h3>Chart 4: RSI & Power Law Deviation Detail</h3>
+            <p><strong>RSI (blue):</strong> Above 70 = overbought (potential sell), below 30 = oversold (potential buy).<br>
+            <strong>Power Law (red):</strong> Negative % = Bitcoin is cheap vs long-term trend. Positive % = Bitcoin is expensive.<br>
+            <strong>Sweet spot:</strong> RSI below 30 + Power Law negative = Strong buy opportunity.</p>
+        </div>
         <div class="chart" id="rsi-pl-chart"></div>
 
         <div class="legend">
