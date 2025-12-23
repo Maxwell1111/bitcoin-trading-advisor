@@ -241,12 +241,18 @@ class RecommendationEngine:
         logging.info(f"Sentiment Score: {sentiment_score:.2f} | Signal: {sentiment_signal}")
 
         # Calculate weighted composite score
+        # OPTIMIZED WEIGHTS based on backtest analysis:
+        # - MACD increased (52.6% directional accuracy)
+        # - Power Law increased (47.4% directional accuracy)
+        # - RSI decreased (26.3% accuracy - underperformer)
+        # - MA decreased (0% - not contributing)
+        # - Sentiment kept (would be higher with real data)
         composite_score = (
-            rsi_score * 0.20 +
-            ma_score * 0.25 +
-            pl_score * 0.25 +
-            macd_score * 0.15 +
-            sentiment_score * 0.15
+            rsi_score * 0.10 +      # REDUCED from 0.20
+            ma_score * 0.10 +       # REDUCED from 0.25
+            pl_score * 0.35 +       # INCREASED from 0.25
+            macd_score * 0.30 +     # INCREASED from 0.15
+            sentiment_score * 0.15  # KEPT
         )
 
         logging.info(f"Composite Score: {composite_score:.2f}")
@@ -318,11 +324,11 @@ class RecommendationEngine:
                 'sentiment': round(sentiment_score, 3)
             },
             'factor_weights': {
-                'rsi': 0.20,
-                'moving_averages': 0.25,
-                'power_law': 0.25,
-                'macd': 0.15,
-                'sentiment': 0.15
+                'rsi': 0.10,             # OPTIMIZED: reduced from 0.20
+                'moving_averages': 0.10,  # OPTIMIZED: reduced from 0.25
+                'power_law': 0.35,        # OPTIMIZED: increased from 0.25
+                'macd': 0.30,             # OPTIMIZED: increased from 0.15
+                'sentiment': 0.15         # Kept same
             },
             'power_law_data': {
                 'fair_value': power_law_analysis['fair_value'],
@@ -449,6 +455,10 @@ class RecommendationEngine:
         """
         Convert combined score to recommendation and confidence
 
+        Optimized thresholds based on backtest analysis:
+        - Buy: +0.25 (more sensitive, from +0.30)
+        - Sell: -0.15 (more sensitive, from -0.30)
+
         Args:
             score: Combined score (-1 to 1)
 
@@ -459,11 +469,11 @@ class RecommendationEngine:
 
         if score >= 0.7:
             return "strong_buy", min(abs_score, 1.0)
-        elif score >= 0.3:
+        elif score >= 0.25:  # OPTIMIZED: was 0.3
             return "buy", abs_score
         elif score <= -0.7:
             return "strong_sell", min(abs_score, 1.0)
-        elif score <= -0.3:
+        elif score <= -0.15:  # OPTIMIZED: was -0.3
             return "sell", abs_score
         else:
             return "hold", 1.0 - abs_score

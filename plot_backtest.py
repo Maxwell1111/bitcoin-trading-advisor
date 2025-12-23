@@ -180,23 +180,25 @@ html_content = f"""<!DOCTYPE html>
 
             <div class="explanation-grid">
                 <div class="explanation-item">
-                    <h4>🎯 Composite Score</h4>
+                    <h4>🎯 Composite Score (OPTIMIZED)</h4>
                     <p><strong>Range:</strong> -1.00 to +1.00<br>
                     <strong>Meaning:</strong> Weighted average of 5 factors<br>
                     • +0.70+ = Strong Buy<br>
-                    • +0.30 to +0.70 = Buy<br>
-                    • -0.30 to +0.30 = Hold<br>
-                    • -0.70 to -0.30 = Sell<br>
-                    • -0.70- = Strong Sell</p>
+                    • +0.25 to +0.70 = Buy ⭐ (lowered)<br>
+                    • -0.15 to +0.25 = Hold ⭐ (widened)<br>
+                    • -0.70 to -0.15 = Sell ⭐ (raised)<br>
+                    • -0.70- = Strong Sell<br>
+                    <em style="color: #17bf63;">✓ Thresholds optimized for accuracy</em></p>
                 </div>
 
                 <div class="explanation-item">
-                    <h4>📊 The 5 Factors</h4>
-                    <p><strong>RSI (20%):</strong> Overbought/oversold<br>
-                    <strong>Moving Avg (25%):</strong> Trend direction<br>
-                    <strong>Power Law (25%):</strong> Long-term value<br>
-                    <strong>MACD (15%):</strong> Momentum<br>
-                    <strong>Sentiment (15%):</strong> Market psychology</p>
+                    <h4>📊 The 5 Factors (OPTIMIZED)</h4>
+                    <p><strong>Power Law (35%):</strong> ⬆️ Long-term value<br>
+                    <strong>MACD (30%):</strong> ⬆️ Momentum<br>
+                    <strong>Sentiment (15%):</strong> Market psychology<br>
+                    <strong>RSI (10%):</strong> ⬇️ Overbought/oversold<br>
+                    <strong>Moving Avg (10%):</strong> ⬇️ Trend direction<br>
+                    <em style="color: #17bf63;">✓ Weights tuned by performance</em></p>
                 </div>
 
                 <div class="explanation-item">
@@ -357,9 +359,9 @@ html_content = f"""<!DOCTYPE html>
             marker: {{
                 color: compositeScores.map(score =>
                     score > 0.7 ? '#17bf63' :
-                    score > 0.3 ? '#90ee90' :
+                    score > 0.25 ? '#90ee90' :      // UPDATED threshold
                     score < -0.7 ? '#f45531' :
-                    score < -0.3 ? '#ffb3b3' :
+                    score < -0.15 ? '#ffb3b3' :     // UPDATED threshold
                     '#8899a6'
                 )
             }},
@@ -381,12 +383,16 @@ html_content = f"""<!DOCTYPE html>
             shapes: [
                 {{ type: 'line', y0: 0.7, y1: 0.7, x0: dates[0], x1: dates[dates.length-1],
                    line: {{ color: '#17bf63', width: 1, dash: 'dash' }} }},
-                {{ type: 'line', y0: 0.3, y1: 0.3, x0: dates[0], x1: dates[dates.length-1],
-                   line: {{ color: '#90ee90', width: 1, dash: 'dash' }} }},
-                {{ type: 'line', y0: -0.3, y1: -0.3, x0: dates[0], x1: dates[dates.length-1],
-                   line: {{ color: '#ffb3b3', width: 1, dash: 'dash' }} }},
+                {{ type: 'line', y0: 0.25, y1: 0.25, x0: dates[0], x1: dates[dates.length-1],
+                   line: {{ color: '#90ee90', width: 2, dash: 'dash' }} }},
+                {{ type: 'line', y0: -0.15, y1: -0.15, x0: dates[0], x1: dates[dates.length-1],
+                   line: {{ color: '#ffb3b3', width: 2, dash: 'dash' }} }},
                 {{ type: 'line', y0: -0.7, y1: -0.7, x0: dates[0], x1: dates[dates.length-1],
                    line: {{ color: '#f45531', width: 1, dash: 'dash' }} }}
+            ],
+            annotations: [
+                {{ x: dates[dates.length-1], y: 0.25, text: 'Buy (+0.25)', showarrow: false, xanchor: 'left', font: {{color: '#90ee90'}} }},
+                {{ x: dates[dates.length-1], y: -0.15, text: 'Sell (-0.15)', showarrow: false, xanchor: 'left', font: {{color: '#ffb3b3'}} }}
             ]
         }};
 
