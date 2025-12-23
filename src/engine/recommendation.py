@@ -52,10 +52,10 @@ class RecommendationEngine:
         
         return "No significant divergence detected."
 
-    def generate_recommendation(self, technical_analysis: Dict,
+    def generate_recommendation(self, power_law_analysis: Dict,
+                               technical_analysis: Dict,
                                news_sentiment_analysis: Dict,
                                reddit_sentiment_analysis: Dict,
-                               historical_data: Dict,
                                current_price: float) -> Dict:
         """
         Generate trading recommendation
@@ -83,10 +83,37 @@ class RecommendationEngine:
                 current_price
             )
 
-        # --- Priority 2: Divergence Check ---
-        logging.info("Checking for sentiment/price divergence...")
-        divergence_signal = self._check_divergence(historical_data, reddit_score_raw)
-        logging.info(f"Divergence check result: {divergence_signal}")
+        # --- Priority 2: Power Law Macro Analysis ---
+        logging.info("Checking Power Law macro positioning...")
+        power_law_status = power_law_analysis['status']
+        logging.info(f"Power Law Status: {power_law_status}")
+
+        # If Power Law indicates extreme conditions, adjust recommendation
+        if power_law_status == "Deep Value":
+            logging.warning("!! POWER LAW: Deep Value Zone - Strong Buy Signal !!")
+            return self._create_power_law_alert(
+                "POWER LAW SIGNAL: Bitcoin is in the Deep Value zone, significantly below the long-term power law support. " +
+                "Historically, this represents an exceptional accumulation opportunity. " +
+                power_law_analysis.get('mean_reversion_narrative', ''),
+                "Deep Value Zone",
+                current_price,
+                power_law_analysis
+            )
+        elif power_law_status == "Bubble Risk":
+            logging.warning("!! POWER LAW: Bubble Risk Zone - Caution Advised !!")
+            return self._create_power_law_alert(
+                "POWER LAW SIGNAL: Bitcoin is in the Bubble Risk zone, significantly above the long-term power law resistance. " +
+                "Historically, this signals overextension and increased correction risk. " +
+                power_law_analysis.get('mean_reversion_narrative', ''),
+                "Bubble Risk Zone",
+                current_price,
+                power_law_analysis
+            )
+
+        # If there's a strong mean reversion signal
+        power_law_narrative = power_law_analysis.get('mean_reversion_narrative', '')
+        divergence_signal = f"Power Law Status: {power_law_status}. {power_law_narrative}" if power_law_narrative else f"Power Law Status: {power_law_status}."
+        logging.info(f"Power Law narrative: {divergence_signal}")
 
         # --- Priority 3: Weighted Signal Combination ---
         # (The rest of the method remains the same)
@@ -137,6 +164,7 @@ class RecommendationEngine:
         return {
             'recommendation': recommendation,
             'confidence': round(confidence, 2),
+<<<<<<< HEAD
             'combined_score': round(combined_score, 3),
             'signals': {
                 'technical': {
@@ -166,6 +194,35 @@ class RecommendationEngine:
             'reasoning': reasoning,
             'divergence_signal': divergence_signal,
             'timestamp': datetime.datetime.now().isoformat()
+=======
+            'reasoning': reasoning,
+            'current_price': current_price,
+            'timestamp': datetime.datetime.now().isoformat(),
+            'targets': targets,
+            'power_law_data': {
+                'fair_value': power_law_analysis['fair_value'],
+                'support_value': power_law_analysis['support_value'],
+                'resistance_value': power_law_analysis['resistance_value'],
+                'status': power_law_analysis['status']
+            },
+            'signals': {
+                'reddit_sentiment': {
+                    'recommendation': reddit_rec,
+                    'confidence': reddit_conf,
+                    'details': reddit_sentiment_analysis
+                },
+                'news_sentiment': {
+                    'recommendation': news_rec,
+                    'confidence': news_conf,
+                    'details': news_sentiment_analysis
+                },
+                'technical': {
+                    'recommendation': technical_rec,
+                    'confidence': technical_conf,
+                    'details': technical_analysis
+                }
+            }
+>>>>>>> ea5a778 (feat: Implement Bitcoin Power Law model for macro analysis)
         }
 
 
@@ -209,6 +266,25 @@ class RecommendationEngine:
                     }
                 }
             }
+        }
+
+    def _create_power_law_alert(self, message: str, alert_type: str, current_price: float, power_law_analysis: Dict) -> Dict:
+        """Creates a special dictionary for power law alerts."""
+        return {
+            'recommendation': 'POWER_LAW_ALERT',
+            'confidence': 1.0,
+            'reasoning': message,
+            'alert_type': alert_type,
+            'current_price': current_price,
+            'timestamp': datetime.datetime.now().isoformat(),
+            'power_law_data': {
+                'fair_value': power_law_analysis['fair_value'],
+                'support_value': power_law_analysis['support_value'],
+                'resistance_value': power_law_analysis['resistance_value'],
+                'status': power_law_analysis['status']
+            },
+            'targets': {},
+            'signals': {}
         }
 
 
@@ -328,6 +404,33 @@ Current BTC Price: ${recommendation['current_price']:,.2f}
 
 ═══════════════════════════════════════════════════════════════
 """
+
+        # Handle Power Law Alert
+        if recommendation.get('recommendation') == 'POWER_LAW_ALERT':
+            pl_data = recommendation.get('power_law_data', {})
+            return f"""
+╔══════════════════════════════════════════════════════════════╗
+║              BITCOIN POWER LAW ANALYSIS ALERT                ║
+╚══════════════════════════════════════════════════════════════╝
+
+Date/Time: {recommendation['timestamp']}
+Current BTC Price: ${recommendation['current_price']:,.2f}
+
+═══════════════════════════════════════════════════════════════
+
+{recommendation.get('alert_type', '').upper()}
+
+POWER LAW CORRIDOR LEVELS:
+  Resistance (Bubble Risk): ${pl_data.get('resistance_value', 0):,.2f}
+  Fair Value:               ${pl_data.get('fair_value', 0):,.2f}
+  Support (Deep Value):     ${pl_data.get('support_value', 0):,.2f}
+
+═══════════════════════════════════════════════════════════════
+
+{recommendation['reasoning']}
+
+═══════════════════════════════════════════════════════════════
+"""
         
         rec = recommendation['recommendation'].replace('_', ' ').upper()
         conf = recommendation['confidence'] * 100
@@ -347,6 +450,16 @@ Current BTC Price: ${price:,.2f}
 
 RECOMMENDATION: {rec}
 Confidence Level: {conf:.0f}%
+
+═══════════════════════════════════════════════════════════════
+
+POWER LAW MACRO ANALYSIS:
+
+Status: {recommendation['power_law_data']['status']}
+  → Current Price:     ${price:,.2f}
+  → Fair Value:        ${recommendation['power_law_data']['fair_value']:,.2f}
+  → Support Level:     ${recommendation['power_law_data']['support_value']:,.2f}
+  → Resistance Level:  ${recommendation['power_law_data']['resistance_value']:,.2f}
 
 ═══════════════════════════════════════════════════════════════
 
