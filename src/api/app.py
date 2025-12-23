@@ -20,6 +20,7 @@ from src.data.price_fetcher import PriceFetcher
 from src.data.news_fetcher import NewsFetcher, MockNewsFetcher, MultiSourceFetcher
 from src.analysis.technical import TechnicalAnalyzer
 from src.analysis.sentiment import SentimentAnalyzer
+from src.analysis.power_law import PowerLawModel
 from src.engine.recommendation import RecommendationEngine
 from src.utils.config import get_config
 from src.utils.cache import get_cache
@@ -179,7 +180,14 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
         # Fetch price data - use yfinance to avoid CoinGecko rate limits
         price_fetcher = PriceFetcher(provider="yfinance")
         current_price = price_fetcher.get_current_price()
-        historical_data = price_fetcher.fetch_historical_data(days=request.days)
+
+        # Fetch enough data for power law analysis
+        power_law_days = max(request.days, 1500)
+        historical_data = price_fetcher.fetch_historical_data(days=power_law_days)
+
+        # Power Law Analysis
+        power_law_analyzer = PowerLawModel()
+        power_law_results = power_law_analyzer.analyze(historical_data)
 
         # Fetch sentiment from multiple sources
         news_articles = []
@@ -251,9 +259,10 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
                 'source_type': 'news'
             }]
 
-        # Technical analysis
+        # Technical analysis - use shorter period for TA
         tech_analyzer = TechnicalAnalyzer()
-        technical_results = tech_analyzer.analyze(historical_data)
+        short_history = historical_data.tail(request.days) if len(historical_data) > request.days else historical_data
+        technical_results = tech_analyzer.analyze(short_history)
 
         # Sentiment analysis - separate Reddit from News
         try:
@@ -323,12 +332,16 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
             technical_weight=0.6
         )
         recommendation = engine.generate_recommendation(
+            power_law_analysis=power_law_results,
             technical_analysis=technical_results,
             news_sentiment_analysis=news_sentiment,
             reddit_sentiment_analysis=reddit_sentiment,
-            historical_data=historical_data,
             current_price=current_price
         )
+
+        # Add power law chart data for frontend
+        if 'time_series' in power_law_results:
+            recommendation['power_law_chart_data'] = power_law_results['time_series']
 
         # Add sentiment sources to recommendation response
         if 'signals' in recommendation and 'sentiment' in recommendation['signals']:

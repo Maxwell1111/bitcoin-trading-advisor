@@ -60,6 +60,13 @@ def get_recommendation_api(
                 "details": recommendation.get('reasoning', '')
             }
 
+        if recommendation.get('recommendation') == 'POWER_LAW_ALERT':
+             return {
+                "decision": recommendation.get('alert_type', 'POWER_LAW_ALERT'),
+                "confidence": recommendation.get('confidence', 1.0),
+                "details": recommendation.get('reasoning', '')
+            }
+
         return {
             "decision": recommendation['recommendation'],
             "confidence": recommendation['confidence'],
