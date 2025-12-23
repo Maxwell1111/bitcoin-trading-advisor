@@ -32,25 +32,162 @@ class RecommendationEngine:
         self.news_weight = news_weight
         self.technical_weight = technical_weight
 
-    def _check_divergence(self, historical_data: Dict, reddit_sentiment_score: float) -> str:
+    def _analyze_rsi(self, rsi_value: float) -> Tuple[float, str]:
         """
-        Checks for bearish divergence between price and Reddit sentiment.
-        A simple implementation: checks if price is at a 30-day high while sentiment is not.
+        Analyze RSI for overbought/oversold conditions
+        Returns: (score from -1 to 1, signal description)
         """
-        close_prices = historical_data.get('Close')
-        if close_prices is None or len(close_prices) < 30:
-            return "Not enough data for divergence check."
+        if rsi_value >= 70:
+            # Overbought - bearish signal
+            severity = min((rsi_value - 70) / 30, 1.0)  # Scale 70-100 to 0-1
+            return (-0.5 - severity * 0.5, f"Overbought (RSI: {rsi_value:.1f})")
+        elif rsi_value <= 30:
+            # Oversold - bullish signal
+            severity = min((30 - rsi_value) / 30, 1.0)  # Scale 0-30 to 1-0
+            return (0.5 + severity * 0.5, f"Oversold (RSI: {rsi_value:.1f})")
+        elif 40 <= rsi_value <= 60:
+            # Neutral zone
+            return (0.0, f"Neutral (RSI: {rsi_value:.1f})")
+        elif rsi_value > 60:
+            # Moderately overbought
+            return (-0.3, f"Moderate strength (RSI: {rsi_value:.1f})")
+        else:
+            # Moderately oversold
+            return (0.3, f"Moderate weakness (RSI: {rsi_value:.1f})")
 
-        # Use standard list operations instead of pandas methods
-        recent_prices = close_prices[-30:]
-        max_price = max(recent_prices)
-        current_price = recent_prices[-1]
+    def _analyze_moving_averages(self, current_price: float, technical_analysis: Dict,
+                                 ma_trend: str, ma_crossovers: Dict) -> Tuple[float, str]:
+        """
+        Analyze moving average trends and crossovers
+        Returns: (score from -1 to 1, signal description)
+        """
+        score = 0.0
+        signals = []
 
-        # A very basic check: is price at a high but sentiment is low?
-        if current_price >= max_price and reddit_sentiment_score < 0.5:
-            return "BEARISH DIVERGENCE: Price is hitting new highs, but Reddit sentiment remains low. This could signal underlying weakness."
-        
-        return "No significant divergence detected."
+        # Check trend
+        if ma_trend == 'strong_bullish':
+            score += 0.8
+            signals.append("Strong uptrend")
+        elif ma_trend == 'bullish':
+            score += 0.5
+            signals.append("Uptrend")
+        elif ma_trend == 'bearish':
+            score -= 0.5
+            signals.append("Downtrend")
+        elif ma_trend == 'strong_bearish':
+            score -= 0.8
+            signals.append("Strong downtrend")
+
+        # Check for golden/death cross
+        if ma_crossovers.get('golden_cross'):
+            score += 0.3
+            signals.append("Golden Cross")
+        if ma_crossovers.get('death_cross'):
+            score -= 0.3
+            signals.append("Death Cross")
+
+        # Check 21-week EMA (Bull Market Support Band)
+        moving_averages = technical_analysis.get('moving_averages', {})
+        ema_21week = moving_averages.get('ema_147')
+        if ema_21week:
+            if current_price > ema_21week * 1.05:
+                score += 0.2
+                signals.append("Above 21W EMA")
+            elif current_price < ema_21week * 0.95:
+                score -= 0.2
+                signals.append("Below 21W EMA")
+
+        score = max(-1.0, min(1.0, score))  # Clamp to [-1, 1]
+        signal_text = ", ".join(signals) if signals else "Neutral MA structure"
+
+        return (score, signal_text)
+
+    def _analyze_power_law(self, status: str, current_price: float, fair_value: float,
+                          power_law_analysis: Dict) -> Tuple[float, str]:
+        """
+        Analyze Power Law positioning
+        Returns: (score from -1 to 1, signal description)
+        """
+        deviation = ((current_price - fair_value) / fair_value) * 100
+
+        if status == "Deep Value":
+            # Strong buy signal - historically great entry
+            return (1.0, f"Deep Value: {deviation:.1f}% below fair value")
+        elif status == "Bubble Risk":
+            # Strong sell signal - historically peaks
+            return (-1.0, f"Bubble Risk: {deviation:.1f}% above fair value")
+        elif deviation < -20:
+            # Undervalued
+            return (0.6, f"Undervalued: {deviation:.1f}% below fair value")
+        elif deviation < -10:
+            # Slightly undervalued
+            return (0.3, f"Below fair value: {deviation:.1f}%")
+        elif deviation > 50:
+            # Significantly overvalued
+            return (-0.7, f"Overvalued: +{deviation:.1f}% above fair value")
+        elif deviation > 20:
+            # Moderately overvalued
+            return (-0.4, f"Above fair value: +{deviation:.1f}%")
+        else:
+            # Near fair value
+            return (0.1, f"Fair Value Zone: {deviation:+.1f}%")
+
+    def _analyze_macd(self, macd: Dict) -> Tuple[float, str]:
+        """
+        Analyze MACD momentum
+        Returns: (score from -1 to 1, signal description)
+        """
+        signal = macd.get('signal', 'neutral')
+        histogram = macd.get('histogram', 0)
+
+        if signal == 'bullish':
+            # Histogram magnitude indicates strength
+            strength = min(abs(histogram) / 1000, 1.0) if histogram else 0.5
+            return (0.3 + strength * 0.4, "Bullish momentum")
+        elif signal == 'bearish':
+            strength = min(abs(histogram) / 1000, 1.0) if histogram else 0.5
+            return (-0.3 - strength * 0.4, "Bearish momentum")
+        else:
+            return (0.0, "Neutral momentum")
+
+    def _analyze_sentiment(self, reddit_score: float, news_score: float) -> Tuple[float, str]:
+        """
+        Analyze market sentiment with contrarian adjustments
+        Returns: (score from -1 to 1, signal description)
+        """
+        avg_sentiment = (reddit_score + news_score) / 2
+
+        # Extreme sentiment gets contrarian treatment
+        if reddit_score > 0.85 or news_score > 0.85:
+            return (-0.6, f"Extreme euphoria (contrarian bearish)")
+        elif reddit_score < 0.15 or news_score < 0.15:
+            return (0.6, f"Extreme fear (contrarian bullish)")
+        elif avg_sentiment > 0.6:
+            return (0.4, f"Positive sentiment")
+        elif avg_sentiment > 0.3:
+            return (0.2, f"Moderately positive")
+        elif avg_sentiment < -0.3:
+            return (-0.4, f"Negative sentiment")
+        elif avg_sentiment < -0.1:
+            return (-0.2, f"Moderately negative")
+        else:
+            return (0.0, f"Neutral sentiment")
+
+    def _analyze_signal_confluence(self, rsi_signal: str, ma_signal: str,
+                                   pl_signal: str, macd_signal: str,
+                                   sentiment_signal: str) -> str:
+        """
+        Analyze whether signals are in agreement or diverging
+        """
+        signals_summary = [
+            f"• RSI: {rsi_signal}",
+            f"• Moving Averages: {ma_signal}",
+            f"• Power Law: {pl_signal}",
+            f"• MACD: {macd_signal}",
+            f"• Sentiment: {sentiment_signal}"
+        ]
+
+        return "\n".join(signals_summary)
 
     def generate_recommendation(self, power_law_analysis: Dict,
                                technical_analysis: Dict,
@@ -58,71 +195,81 @@ class RecommendationEngine:
                                reddit_sentiment_analysis: Dict,
                                current_price: float) -> Dict:
         """
-        Generate trading recommendation
+        Generate holistic trading recommendation based on multiple factors:
+        - RSI levels and momentum
+        - Moving average trends and crossovers
+        - Power Law macro positioning
+        - Historical pattern recognition
+        - Market sentiment (as one factor, not dominant)
         """
-        logging.info("--- Inside Recommendation Engine ---")
-        logging.info(f"Received technical analysis: {technical_analysis['overall']['recommendation']}")
-        logging.info(f"Received news sentiment: {news_sentiment_analysis['overall_sentiment']}")
-        logging.info(f"Received reddit sentiment: {reddit_sentiment_analysis['overall_sentiment']}")
+        logging.info("--- Holistic Recommendation Engine ---")
+        logging.info(f"Analyzing multiple factors for comprehensive recommendation")
 
-        # --- Priority 1: Contrarian Logic Gate ---
-        reddit_score_raw = reddit_sentiment_analysis['average_compound']
-        logging.info(f"Checking contrarian logic with Reddit score: {reddit_score_raw:.3f}")
-        if reddit_score_raw > 0.85:
-            logging.warning("!! CONTRARIAN ALERT: Extreme Euphoria detected !!")
-            return self._create_contrarian_alert(
-                "CONTRARIAN ALERT: Market sentiment is unsustainably bullish. Historically, this precedes a pullback. Consider a cautious stance.",
-                "Extreme Euphoria",
-                current_price
-            )
-        if reddit_score_raw < 0.15:
-            logging.warning("!! CONTRARIAN ALERT: Extreme Fear detected !!")
-            return self._create_contrarian_alert(
-                "CONTRARIAN ALERT: Maximum fear detected. Potential local bottom. Historically, this is an accumulation zone.",
-                "Extreme Fear",
-                current_price
-            )
+        # Extract key metrics
+        rsi = technical_analysis.get('rsi', {})
+        rsi_value = rsi.get('value', 50)
+        macd = technical_analysis.get('macd', {})
+        ma_trend = technical_analysis.get('ma_trend', 'neutral')
+        ma_crossovers = technical_analysis.get('ma_crossovers', {})
 
-        # --- Priority 2: Power Law Macro Analysis ---
-        logging.info("Checking Power Law macro positioning...")
         power_law_status = power_law_analysis['status']
-        logging.info(f"Power Law Status: {power_law_status}")
+        power_law_fair_value = power_law_analysis['fair_value']
 
-        # If Power Law indicates extreme conditions, adjust recommendation
-        if power_law_status == "Deep Value":
-            logging.warning("!! POWER LAW: Deep Value Zone - Strong Buy Signal !!")
-            return self._create_power_law_alert(
-                "POWER LAW SIGNAL: Bitcoin is in the Deep Value zone, significantly below the long-term power law support. " +
-                "Historically, this represents an exceptional accumulation opportunity. " +
-                power_law_analysis.get('mean_reversion_narrative', ''),
-                "Deep Value Zone",
-                current_price,
-                power_law_analysis
-            )
-        elif power_law_status == "Bubble Risk":
-            logging.warning("!! POWER LAW: Bubble Risk Zone - Caution Advised !!")
-            return self._create_power_law_alert(
-                "POWER LAW SIGNAL: Bitcoin is in the Bubble Risk zone, significantly above the long-term power law resistance. " +
-                "Historically, this signals overextension and increased correction risk. " +
-                power_law_analysis.get('mean_reversion_narrative', ''),
-                "Bubble Risk Zone",
-                current_price,
-                power_law_analysis
-            )
+        reddit_score_raw = reddit_sentiment_analysis['average_compound']
+        news_score_raw = news_sentiment_analysis['average_compound']
 
-        # If there's a strong mean reversion signal
-        power_law_narrative = power_law_analysis.get('mean_reversion_narrative', '')
-        divergence_signal = f"Power Law Status: {power_law_status}. {power_law_narrative}" if power_law_narrative else f"Power Law Status: {power_law_status}."
-        logging.info(f"Power Law narrative: {divergence_signal}")
+        # === HOLISTIC SCORING SYSTEM ===
 
-        # --- Priority 3: Weighted Signal Combination ---
-        # (The rest of the method remains the same)
+        # 1. RSI Analysis (Weight: 20%)
+        rsi_score, rsi_signal = self._analyze_rsi(rsi_value)
+        logging.info(f"RSI Score: {rsi_score:.2f} | Signal: {rsi_signal}")
+
+        # 2. Moving Average Analysis (Weight: 25%)
+        ma_score, ma_signal = self._analyze_moving_averages(current_price, technical_analysis, ma_trend, ma_crossovers)
+        logging.info(f"MA Score: {ma_score:.2f} | Signal: {ma_signal}")
+
+        # 3. Power Law Analysis (Weight: 25%)
+        pl_score, pl_signal = self._analyze_power_law(power_law_status, current_price, power_law_fair_value, power_law_analysis)
+        logging.info(f"Power Law Score: {pl_score:.2f} | Signal: {pl_signal}")
+
+        # 4. MACD Momentum (Weight: 15%)
+        macd_score, macd_signal = self._analyze_macd(macd)
+        logging.info(f"MACD Score: {macd_score:.2f} | Signal: {macd_signal}")
+
+        # 5. Sentiment Analysis (Weight: 15%) - reduced from dominant position
+        sentiment_score, sentiment_signal = self._analyze_sentiment(reddit_score_raw, news_score_raw)
+        logging.info(f"Sentiment Score: {sentiment_score:.2f} | Signal: {sentiment_signal}")
+
+        # Calculate weighted composite score
+        composite_score = (
+            rsi_score * 0.20 +
+            ma_score * 0.25 +
+            pl_score * 0.25 +
+            macd_score * 0.15 +
+            sentiment_score * 0.15
+        )
+
+        logging.info(f"Composite Score: {composite_score:.2f}")
+
+        # Generate divergence/confluence analysis
+        divergence_signal = self._analyze_signal_confluence(
+            rsi_signal, ma_signal, pl_signal, macd_signal, sentiment_signal
+        )
+
+        # Convert composite score to recommendation
+        recommendation, confidence = self._score_to_recommendation(composite_score)
+
+        # Generate detailed reasoning
+        reasoning = self._generate_holistic_reasoning(
+            rsi_signal, ma_signal, pl_signal, macd_signal, sentiment_signal,
+            composite_score, recommendation
+        )
+
+        # For backward compatibility, also calculate legacy scores
         technical_rec = technical_analysis['overall']['recommendation']
         technical_conf = technical_analysis['overall']['confidence']
-
         news_rec = news_sentiment_analysis['recommendation']
         news_conf = news_sentiment_analysis['confidence']
-        
         reddit_rec = reddit_sentiment_analysis['recommendation']
         reddit_conf = reddit_sentiment_analysis['confidence']
 
@@ -130,19 +277,11 @@ class RecommendationEngine:
         news_score = self._recommendation_to_score(news_rec) * news_conf
         reddit_score = self._recommendation_to_score(reddit_rec) * reddit_conf
 
-        combined_score = (
-            reddit_score * self.reddit_weight +
-            news_score * self.news_weight +
-            tech_score * self.technical_weight
-        )
-        logging.info(f"Final combined score: {combined_score:.3f}")
-
-        recommendation, confidence = self._score_to_recommendation(combined_score)
-
-        reasoning = self._generate_reasoning(
-            technical_analysis, news_sentiment_analysis, reddit_sentiment_analysis,
-            divergence_signal, recommendation
-        )
+        # Legacy combined score for display
+        combined_sentiment = {
+            'recommendation': reddit_rec if reddit_conf > news_conf else news_rec,
+            'confidence': max(reddit_conf, news_conf)
+        }
 
         targets = self._calculate_targets(current_price, recommendation, confidence)
 
@@ -164,12 +303,27 @@ class RecommendationEngine:
         return {
             'recommendation': recommendation,
             'confidence': round(confidence, 2),
-            'combined_score': round(combined_score, 3),
+            'composite_score': round(composite_score, 3),
+            'combined_score': round(composite_score, 3),  # Alias for backward compatibility
             'reasoning': reasoning,
             'current_price': current_price,
             'timestamp': datetime.datetime.now().isoformat(),
             'targets': targets,
             'divergence_signal': divergence_signal,
+            'factor_scores': {
+                'rsi': round(rsi_score, 3),
+                'moving_averages': round(ma_score, 3),
+                'power_law': round(pl_score, 3),
+                'macd': round(macd_score, 3),
+                'sentiment': round(sentiment_score, 3)
+            },
+            'factor_weights': {
+                'rsi': 0.20,
+                'moving_averages': 0.25,
+                'power_law': 0.25,
+                'macd': 0.15,
+                'sentiment': 0.15
+            },
             'power_law_data': {
                 'fair_value': power_law_analysis['fair_value'],
                 'support_value': power_law_analysis['support_value'],
@@ -314,15 +468,57 @@ class RecommendationEngine:
         else:
             return "hold", 1.0 - abs_score
 
+    def _generate_holistic_reasoning(self, rsi_signal: str, ma_signal: str,
+                                     pl_signal: str, macd_signal: str,
+                                     sentiment_signal: str, composite_score: float,
+                                     recommendation: str) -> str:
+        """Generate comprehensive reasoning based on all factors."""
+
+        reasoning_parts = []
+
+        # Start with the overall assessment
+        reasoning_parts.append(f"Holistic Analysis - {recommendation.replace('_', ' ').upper()}")
+        reasoning_parts.append("")
+
+        # Explain each factor
+        reasoning_parts.append(f"📊 Technical Indicators:")
+        reasoning_parts.append(f"  • RSI: {rsi_signal}")
+        reasoning_parts.append(f"  • MACD: {macd_signal}")
+        reasoning_parts.append(f"  • Moving Averages: {ma_signal}")
+        reasoning_parts.append("")
+
+        reasoning_parts.append(f"📈 Macro Analysis:")
+        reasoning_parts.append(f"  • Power Law: {pl_signal}")
+        reasoning_parts.append("")
+
+        reasoning_parts.append(f"🗣️ Market Sentiment:")
+        reasoning_parts.append(f"  • {sentiment_signal}")
+        reasoning_parts.append("")
+
+        # Composite score interpretation
+        score_pct = composite_score * 100
+        if composite_score > 0.7:
+            reasoning_parts.append(f"✅ Strong confluence of bullish signals (score: {score_pct:+.0f})")
+        elif composite_score > 0.3:
+            reasoning_parts.append(f"↗️ Moderately bullish setup (score: {score_pct:+.0f})")
+        elif composite_score < -0.7:
+            reasoning_parts.append(f"❌ Strong confluence of bearish signals (score: {score_pct:+.0f})")
+        elif composite_score < -0.3:
+            reasoning_parts.append(f"↘️ Moderately bearish setup (score: {score_pct:+.0f})")
+        else:
+            reasoning_parts.append(f"➡️ Neutral / Mixed signals (score: {score_pct:+.0f})")
+
+        return "\n".join(reasoning_parts)
+
     def _generate_reasoning(self, technical: Dict, news: Dict, reddit: Dict, divergence: str, final_rec: str) -> str:
-        """Generate human-readable reasoning for the recommendation."""
+        """Legacy method - kept for backward compatibility."""
         reasons = [divergence]
-        
+
         # Social, News, and Technical summaries
         reasons.append(f"Reddit sentiment is {reddit['overall_sentiment']} (score: {reddit['average_compound']:.2f}).")
         reasons.append(f"News sentiment is {news['overall_sentiment']} (score: {news['average_compound']:.2f}).")
         reasons.append(f"Technical analysis suggests a {technical['overall']['recommendation']} state.")
-        
+
         # Agreement/disagreement
         if technical['overall']['recommendation'] == news['recommendation'] == reddit['recommendation']:
             reasons.append("Social sentiment, news sentiment, and technical analysis are all in agreement.")
