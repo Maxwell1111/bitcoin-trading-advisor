@@ -22,7 +22,7 @@ from src.data.price_fetcher import PriceFetcher
 from src.data.news_fetcher import NewsFetcher, MockNewsFetcher, MultiSourceFetcher
 from src.analysis.technical import TechnicalAnalyzer
 from src.analysis.sentiment import SentimentAnalyzer
-from src.analysis.power_law import BitcoinPowerLaw
+from src.analysis.power_law import PowerLawModel
 from src.engine.recommendation import RecommendationEngine
 from src.utils.config import get_config
 from src.utils.cache import get_cache
@@ -389,9 +389,12 @@ async def get_recommendation(
         technical_results = tech_analyzer.analyze(historical_data)
 
         # Power Law macro analysis
-        bpl = BitcoinPowerLaw()
-        power_law_macro = bpl.get_macro_signal(current_price)
-        power_law_position = bpl.get_current_position(current_price)
+        # TODO: Re-enable when PowerLawModel has get_macro_signal and get_current_position methods
+        # bpl = PowerLawModel()
+        # power_law_macro = bpl.get_macro_signal(current_price)
+        # power_law_position = bpl.get_current_position(current_price)
+        power_law_macro = None
+        power_law_position = None
 
         # Sentiment analysis - separate Reddit from News
         try:
@@ -683,33 +686,30 @@ async def get_power_law_position():
     """
     Get current Bitcoin position relative to Power Law bands
 
-    Returns current price analysis including:
-    - Fair value from power law regression
-    - Support and resistance bands
-    - Zone classification (deep value, accumulation, fair value, distribution, bubble)
-    - Macro signal for AI advisor
+    TEMPORARILY DISABLED: PowerLawModel needs get_current_position and get_macro_signal methods
     """
-    try:
-        # Get current price
-        price_fetcher = PriceFetcher(provider="yfinance")
-        current_price = price_fetcher.get_current_price()
+    return JSONResponse(
+        status_code=501,
+        content={"error": "Power Law position endpoint temporarily disabled during system upgrade"}
+    )
 
-        # Calculate power law position
-        bpl = BitcoinPowerLaw()
-        position = bpl.get_current_position(current_price)
-        macro_signal = bpl.get_macro_signal(current_price)
-
-        return {
-            "current_price": current_price,
-            "position": position,
-            "macro_signal": macro_signal
-        }
-
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
+    # TODO: Re-enable when PowerLawModel has required methods
+    # try:
+    #     price_fetcher = PriceFetcher(provider="yfinance")
+    #     current_price = price_fetcher.get_current_price()
+    #     bpl = PowerLawModel()
+    #     position = bpl.get_current_position(current_price)
+    #     macro_signal = bpl.get_macro_signal(current_price)
+    #     return {
+    #         "current_price": current_price,
+    #         "position": position,
+    #         "macro_signal": macro_signal
+    #     }
+    # except Exception as e:
+    #     return JSONResponse(
+    #         status_code=500,
+    #         content={"error": str(e)}
+    #     )
 
 
 @app.get("/api/power-law/corridor")
@@ -717,27 +717,23 @@ async def get_power_law_corridor(points: int = 100):
     """
     Get Power Law corridor data for charting
 
-    Parameters:
-    - points: Number of data points to generate (default: 100)
-
-    Returns historical and projected power law bands:
-    - dates: Array of dates
-    - fair_value: Fair value line
-    - support: Support band (lower bound)
-    - resistance: Resistance band (upper bound / bubble territory)
-    - days_since_genesis: Days since Bitcoin genesis block
+    TEMPORARILY DISABLED: PowerLawModel needs generate_corridor_data method
     """
-    try:
-        bpl = BitcoinPowerLaw()
-        corridor_data = bpl.generate_corridor_data(points=points)
+    return JSONResponse(
+        status_code=501,
+        content={"error": "Power Law corridor endpoint temporarily disabled during system upgrade"}
+    )
 
-        return corridor_data
-
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
+    # TODO: Re-enable when PowerLawModel has generate_corridor_data method
+    # try:
+    #     bpl = PowerLawModel()
+    #     corridor_data = bpl.generate_corridor_data(points=points)
+    #     return corridor_data
+    # except Exception as e:
+    #     return JSONResponse(
+    #         status_code=500,
+    #         content={"error": str(e)}
+    #     )
 
 
 @app.get("/api/metrics")
