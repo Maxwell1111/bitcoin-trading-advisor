@@ -44,3 +44,7 @@ fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
 pydantic>=2.5.0
 python-multipart>=0.0.6
+
+# Database and adaptive system
+sqlalchemy>=2.0.0  # ORM for SQLite database
+scipy>=1.11.0  # Statistical functions for Sharpe ratio calculations
