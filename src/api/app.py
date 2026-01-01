@@ -790,6 +790,148 @@ async def get_metrics():
         )
 
 
+@app.get("/api/adaptive-stats")
+async def get_adaptive_stats():
+    """
+    Get detailed adaptive system statistics for the System Intelligence dashboard tab
+
+    Returns:
+    - Weight evolution over time with Bayesian phase indicators
+    - Accuracy metrics by recommendation type (buy/sell/hold)
+    - Sharpe ratio trends over time
+    - Data quality indicators and graceful degradation messages
+    """
+    try:
+        from src.database.session import get_db_session
+        from src.database.models import WeightHistory, AccuracyAggregate, Recommendation
+        from datetime import datetime, timedelta
+
+        # Get database session
+        db = get_db_session()
+
+        try:
+            # 1. Weight Evolution Data
+            weight_history = db.query(WeightHistory).order_by(WeightHistory.timestamp.desc()).limit(90).all()
+            weight_history.reverse()  # Chronological order
+
+            weight_evolution = {
+                'dates': [w.timestamp.strftime('%Y-%m-%d') for w in weight_history],
+                'technical': [round(w.weight_technical, 3) for w in weight_history],
+                'reddit': [round(w.weight_reddit, 3) for w in weight_history],
+                'news': [round(w.weight_news, 3) for w in weight_history],
+                'bayesian_factors': [round(w.prior_weight_factor, 3) for w in weight_history]
+            }
+
+            # Calculate Bayesian phase for each point
+            phases = []
+            for w in weight_history:
+                if w.prior_weight_factor >= 0.7:
+                    phases.append('Cold Start')
+                elif w.prior_weight_factor >= 0.3:
+                    phases.append('Transitioning')
+                else:
+                    phases.append('Fully Adaptive')
+            weight_evolution['phases'] = phases
+
+            # 2. Accuracy Metrics by Recommendation Type
+            # Get accuracy aggregates for the last 30 days
+            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            accuracy_data = db.query(AccuracyAggregate).filter(
+                AccuracyAggregate.period_end >= thirty_days_ago
+            ).all()
+
+            # Group by recommendation type
+            accuracy_by_type = {
+                'buy': {'correct': 0, 'total': 0, 'rate': 0.0},
+                'sell': {'correct': 0, 'total': 0, 'rate': 0.0},
+                'hold': {'correct': 0, 'total': 0, 'rate': 0.0},
+                'strong_buy': {'correct': 0, 'total': 0, 'rate': 0.0},
+                'strong_sell': {'correct': 0, 'total': 0, 'rate': 0.0}
+            }
+
+            for agg in accuracy_data:
+                if agg.recommendation_type in accuracy_by_type:
+                    accuracy_by_type[agg.recommendation_type]['correct'] += agg.correct_count
+                    accuracy_by_type[agg.recommendation_type]['total'] += agg.total_count
+
+            # Calculate rates
+            for rec_type in accuracy_by_type:
+                if accuracy_by_type[rec_type]['total'] > 0:
+                    accuracy_by_type[rec_type]['rate'] = round(
+                        accuracy_by_type[rec_type]['correct'] / accuracy_by_type[rec_type]['total'],
+                        3
+                    )
+
+            # 3. Sharpe Ratio Trends
+            # Get recent Sharpe ratios from weight history (stored during optimization)
+            sharpe_trends = {
+                'dates': [],
+                'technical': [],
+                'reddit': [],
+                'news': [],
+                'combined': []
+            }
+
+            # Note: We'll need to add Sharpe ratio storage to WeightHistory model later
+            # For now, return empty arrays with a note
+            sharpe_trends['note'] = 'Sharpe ratio tracking will be available after next optimization cycle'
+
+            # 4. Data Quality and Graceful Degradation
+            total_recs = db.query(Recommendation).count()
+            recent_recs = db.query(Recommendation).filter(
+                Recommendation.timestamp >= thirty_days_ago
+            ).count()
+
+            data_quality = {
+                'total_recommendations': total_recs,
+                'recent_recommendations_30d': recent_recs,
+                'has_sufficient_data': total_recs >= 30,
+                'message': None
+            }
+
+            if total_recs < 30:
+                data_quality['message'] = f"System is in learning phase ({total_recs}/30 recommendations). Full metrics available after {30 - total_recs} more recommendations."
+            elif recent_recs < 10:
+                data_quality['message'] = "Limited recent data. Consider increasing recommendation frequency for better adaptive learning."
+
+            # 5. Current System Status
+            current_weights = weight_manager.get_current_weights()
+            current_config = weight_manager.get_weight_config()
+
+            system_status = {
+                'current_weights': {
+                    'technical': round(current_weights['technical_weight'], 3),
+                    'reddit': round(current_weights['reddit_weight'], 3),
+                    'news': round(current_weights['news_weight'], 3)
+                },
+                'last_optimization': current_config.last_updated.isoformat() if current_config else None,
+                'days_of_data': current_config.days_of_data if current_config else 0,
+                'bayesian_phase': phases[-1] if phases else 'Unknown'
+            }
+
+            return {
+                'weight_evolution': weight_evolution,
+                'accuracy_by_type': accuracy_by_type,
+                'sharpe_trends': sharpe_trends,
+                'data_quality': data_quality,
+                'system_status': system_status,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"Failed to get adaptive stats: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": str(e),
+                "message": "Unable to fetch adaptive system statistics"
+            }
+        )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

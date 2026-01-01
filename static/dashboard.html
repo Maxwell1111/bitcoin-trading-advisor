@@ -272,6 +272,53 @@
         .stat-value.bearish {
             color: #f5576c;
         }
+
+        /* Toggle Switch Styles */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
     </style>
 </head>
 <body>
@@ -283,6 +330,7 @@
 
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="showTab('chart')">📈 Chart & Analysis</button>
+            <button class="nav-tab" onclick="showTab('intelligence')">🧠 System Intelligence</button>
             <button class="nav-tab" onclick="showTab('education')">🎓 Learn</button>
             <button class="nav-tab" onclick="window.location.href='/'">🤖 AI Advisor</button>
         </div>
@@ -292,6 +340,10 @@
                 <div id="priceDisplay" class="price-display">
                     <h2>Current Bitcoin Price</h2>
                     <div class="price" id="currentPrice">Loading...</div>
+                    <div style="margin-top: 15px; height: 60px; max-width: 400px; margin-left: auto; margin-right: auto;">
+                        <canvas id="priceSparkline"></canvas>
+                    </div>
+                    <div style="font-size: 0.9em; margin-top: 8px; opacity: 0.9;">24-Hour Price Movement</div>
                 </div>
 
                 <h2 style="color: #667eea; margin-bottom: 20px;">Bitcoin Price & Moving Averages</h2>
@@ -493,6 +545,182 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Alert System -->
+            <div class="card" style="margin-top: 30px;">
+                <h2 style="color: #667eea; margin-bottom: 20px; border-bottom: 3px solid #667eea; padding-bottom: 15px;">
+                    🔔 Price Alerts
+                </h2>
+                <p style="color: #666; margin-bottom: 20px;">
+                    Set up browser notifications for key market events. Alerts are stored locally in your browser and checked every time data refreshes.
+                </p>
+
+                <!-- Permission Request -->
+                <div id="notificationPermission" style="display: none; background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
+                    <strong>⚠️ Notification Permission Required</strong>
+                    <p style="margin: 10px 0;">To receive alerts, please enable browser notifications.</p>
+                    <button class="chart-btn" onclick="requestNotificationPermission()">Enable Notifications</button>
+                </div>
+
+                <!-- Smart Alerts -->
+                <h3 style="color: #667eea; margin: 25px 0 15px 0;">🎯 Smart Alerts</h3>
+                <p style="color: #666; margin-bottom: 15px; font-size: 0.95em;">
+                    Pre-configured alerts for critical market events.
+                </p>
+
+                <div style="display: grid; gap: 15px; margin-bottom: 30px;">
+                    <!-- Bear Market Warning -->
+                    <div class="edu-box warning" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <strong style="color: #f5576c;">📉 Bear Market Warning</strong>
+                            <p style="margin: 5px 0 0 0; font-size: 0.9em;">Alert when price crosses below the 200-day SMA (bear market signal)</p>
+                        </div>
+                        <label class="switch" style="margin-left: 15px;">
+                            <input type="checkbox" id="alertBearMarket" onchange="toggleSmartAlert('bearMarket', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Bull Market Dip -->
+                    <div class="edu-box success" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <strong style="color: #38ef7d;">📈 Bull Market Dip</strong>
+                            <p style="margin: 5px 0 0 0; font-size: 0.9em;">Alert when price dips to the 21-week EMA while above 200 SMA (buying opportunity)</p>
+                        </div>
+                        <label class="switch" style="margin-left: 15px;">
+                            <input type="checkbox" id="alertBullDip" onchange="toggleSmartAlert('bullDip', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Golden Cross -->
+                    <div class="edu-box" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <strong style="color: #f39c12;">✨ Golden Cross</strong>
+                            <p style="margin: 5px 0 0 0; font-size: 0.9em;">Alert when 50-day SMA crosses above 200-day SMA (major bullish signal)</p>
+                        </div>
+                        <label class="switch" style="margin-left: 15px;">
+                            <input type="checkbox" id="alertGoldenCross" onchange="toggleSmartAlert('goldenCross', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Custom Alert Builder -->
+                <h3 style="color: #667eea; margin: 35px 0 15px 0;">⚙️ Custom Alert</h3>
+                <p style="color: #666; margin-bottom: 15px; font-size: 0.95em;">
+                    Create a simple price-based alert.
+                </p>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 15px; align-items: end;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: #666; font-weight: 600;">Condition</label>
+                        <select id="customAlertCondition" style="width: 100%; padding: 10px; border: 2px solid #667eea; border-radius: 8px; font-size: 1em;">
+                            <option value="above">Price Above</option>
+                            <option value="below">Price Below</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: #666; font-weight: 600;">Price ($)</label>
+                        <input type="number" id="customAlertPrice" placeholder="e.g., 100000" style="width: 100%; padding: 10px; border: 2px solid #667eea; border-radius: 8px; font-size: 1em;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: #666; font-weight: 600;">Message</label>
+                        <input type="text" id="customAlertMessage" placeholder="Optional custom message" style="width: 100%; padding: 10px; border: 2px solid #667eea; border-radius: 8px; font-size: 1em;">
+                    </div>
+                    <button class="chart-btn active" onclick="addCustomAlert()" style="padding: 11px 20px;">
+                        Add Alert
+                    </button>
+                </div>
+
+                <!-- Active Custom Alerts List -->
+                <div id="customAlertsList" style="margin-top: 20px; display: none;">
+                    <h4 style="color: #667eea; margin-bottom: 10px;">Active Custom Alerts</h4>
+                    <div id="customAlertsContainer"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="intelligenceTab" style="display: none;">
+            <div class="card">
+                <h2 style="color: #667eea; margin-bottom: 20px;">🧠 Adaptive System Intelligence</h2>
+                <p style="margin-bottom: 20px; color: #666;">
+                    This dashboard shows how the AI system learns and adapts its signal weighting over time based on historical performance.
+                </p>
+
+                <div id="dataQualityMessage" style="display: none; background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
+                    <strong>⚠️ Learning Phase:</strong> <span id="qualityMessageText"></span>
+                </div>
+
+                <!-- Current System Status -->
+                <div class="stat-grid" style="margin-bottom: 30px;">
+                    <div class="stat-card">
+                        <div class="stat-label">Technical Weight</div>
+                        <div class="stat-value" id="weightTech">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Reddit Weight</div>
+                        <div class="stat-value" id="weightReddit">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">News Weight</div>
+                        <div class="stat-value" id="weightNews">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">System Phase</div>
+                        <div class="stat-value" id="systemPhase" style="font-size: 1.2em;">-</div>
+                    </div>
+                </div>
+
+                <!-- Weight Evolution Chart -->
+                <h3 style="color: #667eea; margin: 30px 0 15px 0;">📈 Weight Evolution Over Time</h3>
+                <p style="color: #666; margin-bottom: 15px;">
+                    Shows how signal weights have evolved as the system learns from historical accuracy.
+                    The Bayesian phase indicator shows the system's transition from cold start (using priors) to fully adaptive.
+                </p>
+                <div class="chart-container" style="height: 400px;">
+                    <canvas id="weightEvolutionChart"></canvas>
+                </div>
+                <div id="loadingWeights" class="loading">Loading weight evolution data</div>
+
+                <!-- Accuracy by Recommendation Type -->
+                <h3 style="color: #667eea; margin: 40px 0 15px 0;">🎯 Accuracy by Recommendation Type (Last 30 Days)</h3>
+                <p style="color: #666; margin-bottom: 15px;">
+                    Tracks how accurate each recommendation type has been over the past month.
+                </p>
+                <div class="chart-container" style="height: 350px;">
+                    <canvas id="accuracyChart"></canvas>
+                </div>
+                <div id="loadingAccuracy" class="loading">Loading accuracy metrics</div>
+
+                <!-- Sharpe Ratio Trends (Coming Soon) -->
+                <h3 style="color: #667eea; margin: 40px 0 15px 0;">📊 Sharpe Ratio Trends</h3>
+                <div class="edu-box" style="margin-top: 15px;">
+                    <strong>📝 Coming Soon</strong>
+                    <p>Sharpe ratio tracking will be available after the next optimization cycle. This will show risk-adjusted returns for each signal type over time.</p>
+                </div>
+
+                <!-- Learning Metrics -->
+                <h3 style="color: #667eea; margin: 40px 0 15px 0;">📚 System Learning Metrics</h3>
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Recommendations</div>
+                        <div class="stat-value" id="totalRecs">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Recent (30 Days)</div>
+                        <div class="stat-value" id="recentRecs">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Days of Data</div>
+                        <div class="stat-value" id="daysOfData">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Last Optimization</div>
+                        <div class="stat-value" id="lastOpt" style="font-size: 0.9em;">-</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div id="educationTab" style="display: none;">
@@ -665,10 +893,16 @@
         // Tab switching
         function showTab(tabName) {
             document.getElementById('chartTab').style.display = tabName === 'chart' ? 'block' : 'none';
+            document.getElementById('intelligenceTab').style.display = tabName === 'intelligence' ? 'block' : 'none';
             document.getElementById('educationTab').style.display = tabName === 'education' ? 'block' : 'none';
 
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
+
+            // Load intelligence data when switching to that tab
+            if (tabName === 'intelligence') {
+                loadIntelligenceData();
+            }
         }
 
         // Get current price
@@ -682,6 +916,71 @@
                 document.getElementById('currentPrice').textContent = 'Error loading price';
                 console.error('Error fetching price:', error);
             }
+        }
+
+        // Price sparkline chart
+        let priceSparklineChart = null;
+
+        // Load 24h sparkline data
+        async function loadPriceSparkline() {
+            try {
+                const response = await fetch('/api/chart-data?days=1');
+                const data = await response.json();
+                createPriceSparkline(data);
+            } catch (error) {
+                console.error('Error loading sparkline:', error);
+            }
+        }
+
+        // Create price sparkline chart
+        function createPriceSparkline(data) {
+            const ctx = document.getElementById('priceSparkline').getContext('2d');
+
+            // Destroy existing chart if it exists
+            if (priceSparklineChart) {
+                priceSparklineChart.destroy();
+            }
+
+            // Create minimal sparkline chart
+            priceSparklineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.dates,
+                    datasets: [{
+                        data: data.price,
+                        borderColor: 'rgba(255, 255, 255, 0.9)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: false
+                        },
+                        y: {
+                            display: false
+                        }
+                    },
+                    interaction: {
+                        mode: 'none'
+                    }
+                }
+            });
         }
 
         // Change timeframe
@@ -715,6 +1014,9 @@
 
                 // Create chart
                 createChart(data);
+
+                // Check alerts
+                checkAlerts(data);
             } catch (error) {
                 document.getElementById('loadingChart').innerHTML = `<p style="color: red;">Error loading chart: ${error.message}</p>`;
                 console.error('Error loading chart data:', error);
@@ -898,12 +1200,498 @@
             });
         }
 
+        // Alert System
+        let currentChartData = null;  // Store current chart data for alert checking
+        let lastAlertCheck = {};  // Track when each alert last triggered
+
+        // Check notification permission on load
+        function checkNotificationPermission() {
+            if (!("Notification" in window)) {
+                return;
+            }
+
+            if (Notification.permission === 'default') {
+                document.getElementById('notificationPermission').style.display = 'block';
+            } else if (Notification.permission === 'denied') {
+                document.getElementById('notificationPermission').innerHTML = '<strong>❌ Notifications Blocked</strong><p>Please enable notifications in your browser settings to use alerts.</p>';
+                document.getElementById('notificationPermission').style.display = 'block';
+            }
+
+            // Load saved alert states
+            loadAlertStates();
+        }
+
+        // Request notification permission
+        function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                alert("This browser does not support notifications");
+                return;
+            }
+
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    document.getElementById('notificationPermission').style.display = 'none';
+                    new Notification("Alerts Enabled", {
+                        body: "You'll now receive Bitcoin price alerts!",
+                        icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>🔔</text></svg>"
+                    });
+                }
+            });
+        }
+
+        // Toggle smart alert
+        function toggleSmartAlert(alertType, enabled) {
+            const alerts = JSON.parse(localStorage.getItem('btc_smart_alerts') || '{}');
+            alerts[alertType] = enabled;
+            localStorage.setItem('btc_smart_alerts', JSON.stringify(alerts));
+
+            if (enabled && Notification.permission === 'default') {
+                requestNotificationPermission();
+            }
+        }
+
+        // Load alert states from localStorage
+        function loadAlertStates() {
+            const alerts = JSON.parse(localStorage.getItem('btc_smart_alerts') || '{}');
+            document.getElementById('alertBearMarket').checked = alerts.bearMarket || false;
+            document.getElementById('alertBullDip').checked = alerts.bullDip || false;
+            document.getElementById('alertGoldenCross').checked = alerts.goldenCross || false;
+
+            // Load custom alerts
+            displayCustomAlerts();
+        }
+
+        // Add custom alert
+        function addCustomAlert() {
+            const condition = document.getElementById('customAlertCondition').value;
+            const price = parseFloat(document.getElementById('customAlertPrice').value);
+            const message = document.getElementById('customAlertMessage').value || `Bitcoin ${condition} $${price.toLocaleString()}`;
+
+            if (isNaN(price) || price <= 0) {
+                alert('Please enter a valid price');
+                return;
+            }
+
+            const customAlerts = JSON.parse(localStorage.getItem('btc_custom_alerts') || '[]');
+            customAlerts.push({
+                id: Date.now(),
+                condition,
+                price,
+                message,
+                enabled: true
+            });
+
+            localStorage.setItem('btc_custom_alerts', JSON.stringify(customAlerts));
+
+            // Clear form
+            document.getElementById('customAlertPrice').value = '';
+            document.getElementById('customAlertMessage').value = '';
+
+            displayCustomAlerts();
+
+            if (Notification.permission === 'default') {
+                requestNotificationPermission();
+            }
+        }
+
+        // Display custom alerts
+        function displayCustomAlerts() {
+            const customAlerts = JSON.parse(localStorage.getItem('btc_custom_alerts') || '[]');
+            const container = document.getElementById('customAlertsContainer');
+
+            if (customAlerts.length === 0) {
+                document.getElementById('customAlertsList').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('customAlertsList').style.display = 'block';
+            container.innerHTML = customAlerts.map(alert => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;">
+                    <div>
+                        <strong>${alert.condition === 'above' ? '📈' : '📉'} ${alert.message}</strong>
+                        <div style="font-size: 0.85em; color: #666; margin-top: 5px;">
+                            Alert when price ${alert.condition} $${alert.price.toLocaleString()}
+                        </div>
+                    </div>
+                    <button class="chart-btn" onclick="removeCustomAlert(${alert.id})" style="padding: 8px 16px; background: #f5576c; color: white; border-color: #f5576c;">
+                        Remove
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Remove custom alert
+        function removeCustomAlert(id) {
+            let customAlerts = JSON.parse(localStorage.getItem('btc_custom_alerts') || '[]');
+            customAlerts = customAlerts.filter(alert => alert.id !== id);
+            localStorage.setItem('btc_custom_alerts', JSON.stringify(customAlerts));
+            displayCustomAlerts();
+        }
+
+        // Check alerts
+        function checkAlerts(chartData) {
+            if (!chartData || !chartData.price || chartData.price.length === 0) {
+                return;
+            }
+
+            currentChartData = chartData;
+            const currentPrice = chartData.price[chartData.price.length - 1];
+            const currentSMA200 = chartData.sma_200[chartData.sma_200.length - 1];
+            const currentSMA50 = chartData.sma_50[chartData.sma_50.length - 1];
+            const currentEMA21w = chartData.ema_21week[chartData.ema_21week.length - 1];
+
+            // Previous values for crossover detection
+            const prevPrice = chartData.price[chartData.price.length - 2];
+            const prevSMA200 = chartData.sma_200[chartData.sma_200.length - 2];
+            const prevSMA50 = chartData.sma_50[chartData.sma_50.length - 2];
+
+            const smartAlerts = JSON.parse(localStorage.getItem('btc_smart_alerts') || '{}');
+
+            // Bear Market Warning - price crosses below 200 SMA
+            if (smartAlerts.bearMarket && prevPrice >= prevSMA200 && currentPrice < currentSMA200) {
+                if (!wasRecentlyTriggered('bearMarket')) {
+                    showNotification('📉 Bear Market Warning', `Bitcoin has crossed below the 200-day SMA at $${currentPrice.toLocaleString()}`);
+                    markAlertTriggered('bearMarket');
+                }
+            }
+
+            // Bull Market Dip - price touches 21-week EMA while above 200 SMA
+            if (smartAlerts.bullDip && currentPrice > currentSMA200) {
+                const touchDistance = Math.abs(currentPrice - currentEMA21w) / currentPrice;
+                if (touchDistance < 0.02 && !wasRecentlyTriggered('bullDip')) {  // Within 2%
+                    showNotification('📈 Bull Market Dip', `Bitcoin touching 21-week EMA at $${currentPrice.toLocaleString()} - potential buying opportunity!`);
+                    markAlertTriggered('bullDip');
+                }
+            }
+
+            // Golden Cross - 50 SMA crosses above 200 SMA
+            if (smartAlerts.goldenCross && prevSMA50 <= prevSMA200 && currentSMA50 > currentSMA200) {
+                if (!wasRecentlyTriggered('goldenCross')) {
+                    showNotification('✨ Golden Cross!', `The 50-day SMA has crossed above the 200-day SMA - major bullish signal!`);
+                    markAlertTriggered('goldenCross');
+                }
+            }
+
+            // Custom alerts
+            const customAlerts = JSON.parse(localStorage.getItem('btc_custom_alerts') || '[]');
+            customAlerts.forEach(alert => {
+                if (!alert.enabled) return;
+
+                const alertKey = `custom_${alert.id}`;
+                if (alert.condition === 'above' && currentPrice > alert.price && !wasRecentlyTriggered(alertKey)) {
+                    showNotification('🔔 Price Alert', alert.message);
+                    markAlertTriggered(alertKey);
+                    // Disable one-time custom alerts
+                    removeCustomAlert(alert.id);
+                } else if (alert.condition === 'below' && currentPrice < alert.price && !wasRecentlyTriggered(alertKey)) {
+                    showNotification('🔔 Price Alert', alert.message);
+                    markAlertTriggered(alertKey);
+                    removeCustomAlert(alert.id);
+                }
+            });
+        }
+
+        // Check if alert was triggered recently (within last hour)
+        function wasRecentlyTriggered(alertKey) {
+            const lastTrigger = lastAlertCheck[alertKey];
+            if (!lastTrigger) return false;
+
+            const hourAgo = Date.now() - (60 * 60 * 1000);
+            return lastTrigger > hourAgo;
+        }
+
+        // Mark alert as triggered
+        function markAlertTriggered(alertKey) {
+            lastAlertCheck[alertKey] = Date.now();
+        }
+
+        // Show browser notification
+        function showNotification(title, body) {
+            if (Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: body,
+                    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>🔔</text></svg>",
+                    requireInteraction: false
+                });
+            }
+        }
+
+        // Intelligence Tab Charts
+        let weightEvolutionChart = null;
+        let accuracyChart = null;
+
+        // Load intelligence data
+        async function loadIntelligenceData() {
+            try {
+                const response = await fetch('/api/adaptive-stats');
+                const data = await response.json();
+
+                // Update current status cards
+                document.getElementById('weightTech').textContent = (data.system_status.current_weights.technical * 100).toFixed(1) + '%';
+                document.getElementById('weightReddit').textContent = (data.system_status.current_weights.reddit * 100).toFixed(1) + '%';
+                document.getElementById('weightNews').textContent = (data.system_status.current_weights.news * 100).toFixed(1) + '%';
+                document.getElementById('systemPhase').textContent = data.system_status.bayesian_phase;
+
+                // Show data quality message if needed
+                if (data.data_quality.message) {
+                    document.getElementById('dataQualityMessage').style.display = 'block';
+                    document.getElementById('qualityMessageText').textContent = data.data_quality.message;
+                } else {
+                    document.getElementById('dataQualityMessage').style.display = 'none';
+                }
+
+                // Update learning metrics
+                document.getElementById('totalRecs').textContent = data.data_quality.total_recommendations;
+                document.getElementById('recentRecs').textContent = data.data_quality.recent_recommendations_30d;
+                document.getElementById('daysOfData').textContent = data.system_status.days_of_data;
+
+                if (data.system_status.last_optimization) {
+                    const optDate = new Date(data.system_status.last_optimization);
+                    document.getElementById('lastOpt').textContent = optDate.toLocaleDateString();
+                } else {
+                    document.getElementById('lastOpt').textContent = 'Never';
+                }
+
+                // Create charts
+                createWeightEvolutionChart(data.weight_evolution);
+                createAccuracyChart(data.accuracy_by_type);
+
+            } catch (error) {
+                console.error('Error loading intelligence data:', error);
+                document.getElementById('loadingWeights').textContent = 'Error loading data. Please try again later.';
+                document.getElementById('loadingAccuracy').textContent = 'Error loading data. Please try again later.';
+            }
+        }
+
+        // Create weight evolution chart
+        function createWeightEvolutionChart(data) {
+            const ctx = document.getElementById('weightEvolutionChart').getContext('2d');
+
+            // Destroy existing chart if it exists
+            if (weightEvolutionChart) {
+                weightEvolutionChart.destroy();
+            }
+
+            // Hide loading message
+            document.getElementById('loadingWeights').style.display = 'none';
+
+            if (!data.dates || data.dates.length === 0) {
+                document.getElementById('loadingWeights').textContent = 'No weight history available yet. Check back after optimization runs.';
+                document.getElementById('loadingWeights').style.display = 'block';
+                return;
+            }
+
+            weightEvolutionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.dates,
+                    datasets: [
+                        {
+                            label: 'Technical Weight',
+                            data: data.technical,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Reddit Weight',
+                            data: data.reddit,
+                            borderColor: '#f093fb',
+                            backgroundColor: 'rgba(240, 147, 251, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'News Weight',
+                            data: data.news,
+                            borderColor: '#38ef7d',
+                            backgroundColor: 'rgba(56, 239, 125, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Bayesian Prior Factor',
+                            data: data.bayesian_factors,
+                            borderColor: '#f5576c',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            fill: false,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        if (context.dataset.yAxisID === 'y1') {
+                                            label += context.parsed.y.toFixed(3);
+                                        } else {
+                                            label += (context.parsed.y * 100).toFixed(1) + '%';
+                                        }
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            ticks: {
+                                callback: function(value) {
+                                    return (value * 100).toFixed(0) + '%';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Weight (%)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            beginAtZero: true,
+                            max: 1,
+                            title: {
+                                display: true,
+                                text: 'Bayesian Prior'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Create accuracy by type chart
+        function createAccuracyChart(data) {
+            const ctx = document.getElementById('accuracyChart').getContext('2d');
+
+            // Destroy existing chart if it exists
+            if (accuracyChart) {
+                accuracyChart.destroy();
+            }
+
+            // Hide loading message
+            document.getElementById('loadingAccuracy').style.display = 'none';
+
+            // Check if we have any data
+            const hasData = Object.values(data).some(d => d.total > 0);
+            if (!hasData) {
+                document.getElementById('loadingAccuracy').textContent = 'No accuracy data available yet. Data will appear after validation runs.';
+                document.getElementById('loadingAccuracy').style.display = 'block';
+                return;
+            }
+
+            const labels = Object.keys(data).map(k => k.replace('_', ' ').toUpperCase());
+            const accuracyRates = Object.values(data).map(d => d.rate * 100);
+            const totalCounts = Object.values(data).map(d => d.total);
+
+            accuracyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Accuracy Rate (%)',
+                            data: accuracyRates,
+                            backgroundColor: [
+                                'rgba(56, 239, 125, 0.7)',   // buy - green
+                                'rgba(245, 87, 108, 0.7)',   // sell - red
+                                'rgba(149, 165, 166, 0.7)',  // hold - gray
+                                'rgba(56, 239, 125, 0.9)',   // strong_buy - darker green
+                                'rgba(245, 87, 108, 0.9)'    // strong_sell - darker red
+                            ],
+                            borderColor: [
+                                'rgba(56, 239, 125, 1)',
+                                'rgba(245, 87, 108, 1)',
+                                'rgba(149, 165, 166, 1)',
+                                'rgba(56, 239, 125, 1)',
+                                'rgba(245, 87, 108, 1)'
+                            ],
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    const accuracy = accuracyRates[idx].toFixed(1);
+                                    const total = totalCounts[idx];
+                                    return `Accuracy: ${accuracy}% (${total} recommendations)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Accuracy Rate (%)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         // Initialize on page load
+        checkNotificationPermission();
         getCurrentPrice();
         loadChartData();
+        loadPriceSparkline();
 
         // Refresh price every 60 seconds
         setInterval(getCurrentPrice, 60000);
+
+        // Refresh sparkline every 30 seconds
+        setInterval(loadPriceSparkline, 30000);
     </script>
 </body>
 </html>
