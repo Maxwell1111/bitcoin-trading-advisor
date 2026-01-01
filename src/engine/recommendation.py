@@ -56,14 +56,37 @@ class RecommendationEngine:
                                news_sentiment_analysis: Dict,
                                reddit_sentiment_analysis: Dict,
                                historical_data: Dict,
-                               current_price: float) -> Dict:
+                               current_price: float,
+                               power_law_macro: Dict = None) -> Dict:
         """
-        Generate trading recommendation
+        Generate trading recommendation with Power Law macro filter
+
+        Args:
+            technical_analysis: Technical indicators (RSI, MACD, MAs)
+            news_sentiment_analysis: News sentiment scores
+            reddit_sentiment_analysis: Reddit sentiment scores
+            historical_data: Historical price data
+            current_price: Current Bitcoin price
+            power_law_macro: Power law macro signal (optional)
         """
         logging.info("--- Inside Recommendation Engine ---")
         logging.info(f"Received technical analysis: {technical_analysis['overall']['recommendation']}")
         logging.info(f"Received news sentiment: {news_sentiment_analysis['overall_sentiment']}")
         logging.info(f"Received reddit sentiment: {reddit_sentiment_analysis['overall_sentiment']}")
+
+        # --- Priority 0: POWER LAW MACRO FILTER (Highest Priority) ---
+        if power_law_macro and power_law_macro.get('should_override'):
+            logging.warning(f"!! POWER LAW OVERRIDE: {power_law_macro['signal']} !!")
+            logging.info(f"Power Law reasoning: {power_law_macro['reasoning']}")
+
+            # Power law override - return early with macro signal
+            return self._create_power_law_recommendation(
+                power_law_macro,
+                technical_analysis,
+                news_sentiment_analysis,
+                reddit_sentiment_analysis,
+                current_price
+            )
 
         # --- Priority 1: Contrarian Logic Gate ---
         reddit_score_raw = reddit_sentiment_analysis['average_compound']

@@ -2,7 +2,7 @@
 Bitcoin Trading Advisor FastAPI Application
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 import os
 import pandas as pd
+import asyncio
+import logging
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -20,16 +22,48 @@ from src.data.price_fetcher import PriceFetcher
 from src.data.news_fetcher import NewsFetcher, MockNewsFetcher, MultiSourceFetcher
 from src.analysis.technical import TechnicalAnalyzer
 from src.analysis.sentiment import SentimentAnalyzer
+from src.analysis.power_law import BitcoinPowerLaw
 from src.engine.recommendation import RecommendationEngine
 from src.utils.config import get_config
 from src.utils.cache import get_cache
+
+# Adaptive system imports
+from src.database import init_database
+from src.services import (
+    get_weight_manager,
+    HistoryTracker,
+    ValidationService,
+    PriceMonitor,
+    ValidationJob,
+    WeightOptimizer
+)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
     title="Bitcoin Portfolio Advisor API",
     description="Get Bitcoin trading recommendations based on sentiment analysis and technical indicators",
-    version="1.0.0"
+    version="2.0.0"  # Bumped version for adaptive system
 )
+
+# Global service instances
+weight_manager = get_weight_manager()
+history_tracker = HistoryTracker()
+validation_service = ValidationService()
+
+# Background service instances (will be started in startup event)
+price_monitor = None
+validation_job = None
+weight_optimizer = None
+
+# Background task references
+background_tasks = {}
 
 # Add CORS middleware
 app.add_middleware(
@@ -39,6 +73,94 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Startup and shutdown events
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database and start background services"""
+    global price_monitor, validation_job, weight_optimizer
+
+    logger.info("=" * 60)
+    logger.info("BITCOIN ADVISOR API STARTING UP")
+    logger.info("=" * 60)
+
+    # 1. Initialize database
+    logger.info("Initializing database...")
+    init_success = init_database()
+    if init_success:
+        logger.info("✓ Database initialized successfully")
+    else:
+        logger.error("✗ Database initialization failed!")
+
+    # 2. Start WeightManager periodic refresh
+    logger.info("Starting WeightManager...")
+    weight_manager.start_refresh_task()
+    logger.info("✓ WeightManager started")
+
+    # 3. Start PriceMonitor
+    logger.info("Starting PriceMonitor...")
+    price_monitor = PriceMonitor(volatility_threshold=0.03, poll_interval=30)
+    background_tasks['price_monitor'] = asyncio.create_task(price_monitor.run())
+    logger.info("✓ PriceMonitor started")
+
+    # 4. Start ValidationJob
+    logger.info("Starting ValidationJob...")
+
+    async def get_current_price_async():
+        """Wrapper to get current price for validation job"""
+        if price_monitor:
+            price = price_monitor.get_current_price()
+            if price:
+                return price
+        # Fallback to fetching directly
+        fetcher = PriceFetcher(provider="yfinance")
+        return fetcher.get_current_price()
+
+    validation_job = ValidationJob(
+        validation_service=validation_service,
+        price_fetcher=get_current_price_async,
+        interval_seconds=300,  # 5 minutes
+        batch_size=100
+    )
+    background_tasks['validation_job'] = asyncio.create_task(validation_job.run())
+    logger.info("✓ ValidationJob started")
+
+    # 5. Start WeightOptimizer
+    logger.info("Starting WeightOptimizer...")
+    weight_optimizer = WeightOptimizer(
+        validation_service=validation_service,
+        rolling_window_days=30,
+        cold_start_days=30,
+        smoothing_factor=0.3
+    )
+    background_tasks['weight_optimizer'] = asyncio.create_task(weight_optimizer.run())
+    logger.info("✓ WeightOptimizer started")
+
+    logger.info("=" * 60)
+    logger.info("ALL SERVICES STARTED SUCCESSFULLY")
+    logger.info("=" * 60)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Gracefully shutdown background services"""
+    logger.info("Shutting down background services...")
+
+    # Stop WeightManager refresh
+    weight_manager.stop_refresh_task()
+
+    # Cancel all background tasks
+    for name, task in background_tasks.items():
+        if not task.done():
+            logger.info(f"Cancelling {name}...")
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+    logger.info("✓ All services stopped")
 
 
 # Pydantic models for API
@@ -165,17 +287,28 @@ async def get_current_price():
 
 
 @app.post("/api/recommendation")
-async def get_recommendation(request: RecommendationRequest) -> RecommendationResponse:
+async def get_recommendation(
+    request: RecommendationRequest,
+    include: Optional[str] = Query(None, description="Include additional data: 'stats', 'history', or 'full'")
+) -> RecommendationResponse:
     """
     Get trading recommendation based on technical and sentiment analysis
+
+    NOW WITH ADAPTIVE WEIGHTS! The system automatically adjusts technical vs sentiment
+    weighting based on historical accuracy.
 
     Parameters:
     - days: Number of days of historical price data (default: 100)
     - news_days: Number of days of news to analyze (default: 7)
     - max_articles: Maximum number of news articles (default: 50)
     - use_mock: Use mock data for testing (default: false)
+    - include: Optional metadata - 'stats' for accuracy metrics, 'full' for everything
     """
     try:
+        # Load adaptive weights
+        adaptive_weights = weight_manager.get_current_weights()
+        logger.info(f"Using adaptive weights: {adaptive_weights}")
+
         # Fetch price data - use yfinance to avoid CoinGecko rate limits
         price_fetcher = PriceFetcher(provider="yfinance")
         current_price = price_fetcher.get_current_price()
@@ -255,6 +388,11 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
         tech_analyzer = TechnicalAnalyzer()
         technical_results = tech_analyzer.analyze(historical_data)
 
+        # Power Law macro analysis
+        bpl = BitcoinPowerLaw()
+        power_law_macro = bpl.get_macro_signal(current_price)
+        power_law_position = bpl.get_current_position(current_price)
+
         # Sentiment analysis - separate Reddit from News
         try:
             sentiment_analyzer = SentimentAnalyzer(analyzer_type='vader')
@@ -316,11 +454,11 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
             reddit_sentiment = news_sentiment.copy()
             source_counts = {'news': 0, 'reddit': 0}
 
-        # Generate recommendation with contrarian engine
+        # Generate recommendation with ADAPTIVE WEIGHTS
         engine = RecommendationEngine(
-            reddit_weight=0.25,
-            news_weight=0.15,
-            technical_weight=0.6
+            reddit_weight=adaptive_weights['reddit_weight'],
+            news_weight=adaptive_weights['news_weight'],
+            technical_weight=adaptive_weights['technical_weight']
         )
         recommendation = engine.generate_recommendation(
             technical_analysis=technical_results,
@@ -333,6 +471,54 @@ async def get_recommendation(request: RecommendationRequest) -> RecommendationRe
         # Add sentiment sources to recommendation response
         if 'signals' in recommendation and 'sentiment' in recommendation['signals']:
             recommendation['signals']['sentiment']['sources'] = source_counts
+
+        # Save recommendation to history (for adaptive learning)
+        try:
+            rec_id = history_tracker.save_recommendation(
+                rec_data=recommendation,
+                current_price=current_price,
+                weights=adaptive_weights,
+                operating_mode='normal',  # TODO: Implement mode detection
+                request_params={
+                    'days': request.days,
+                    'news_days': request.news_days,
+                    'max_articles': request.max_articles,
+                    'use_mock': request.use_mock
+                }
+            )
+            logger.info(f"✓ Recommendation saved to database (ID: {rec_id})")
+        except Exception as e:
+            logger.error(f"Failed to save recommendation: {e}")
+            # Don't fail the request if save fails
+
+        # Add optional metadata if requested
+        if include:
+            meta = {
+                'operating_mode': 'normal',  # TODO: Implement mode detection
+                'weights_used': {
+                    'technical': adaptive_weights['technical_weight'],
+                    'reddit': adaptive_weights['reddit_weight'],
+                    'news': adaptive_weights['news_weight'],
+                    'source': 'adaptive',
+                    'last_updated': weight_manager.get_weight_config().last_updated.isoformat()
+                },
+                'data_quality': {
+                    'technical_available': True,
+                    'sentiment_available': True,
+                    'degraded_reason': None
+                }
+            }
+            recommendation['meta'] = meta
+
+            if include in ['stats', 'full']:
+                # Add performance statistics
+                recent_accuracy = validation_service.get_recent_accuracy('standard_24h', days=7)
+                recommendation['performance_stats'] = {
+                    'recent_accuracy': {
+                        '7d': round(recent_accuracy, 3)
+                    },
+                    'recommendations_today': len(history_tracker.get_recent_recommendations(limit=100))
+                }
 
         return RecommendationResponse(**recommendation)
 
@@ -486,6 +672,122 @@ async def get_chart_data(days: int = 180):
         }
 
     except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+
+@app.get("/api/power-law/position")
+async def get_power_law_position():
+    """
+    Get current Bitcoin position relative to Power Law bands
+
+    Returns current price analysis including:
+    - Fair value from power law regression
+    - Support and resistance bands
+    - Zone classification (deep value, accumulation, fair value, distribution, bubble)
+    - Macro signal for AI advisor
+    """
+    try:
+        # Get current price
+        price_fetcher = PriceFetcher(provider="yfinance")
+        current_price = price_fetcher.get_current_price()
+
+        # Calculate power law position
+        bpl = BitcoinPowerLaw()
+        position = bpl.get_current_position(current_price)
+        macro_signal = bpl.get_macro_signal(current_price)
+
+        return {
+            "current_price": current_price,
+            "position": position,
+            "macro_signal": macro_signal
+        }
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+
+@app.get("/api/power-law/corridor")
+async def get_power_law_corridor(points: int = 100):
+    """
+    Get Power Law corridor data for charting
+
+    Parameters:
+    - points: Number of data points to generate (default: 100)
+
+    Returns historical and projected power law bands:
+    - dates: Array of dates
+    - fair_value: Fair value line
+    - support: Support band (lower bound)
+    - resistance: Resistance band (upper bound / bubble territory)
+    - days_since_genesis: Days since Bitcoin genesis block
+    """
+    try:
+        bpl = BitcoinPowerLaw()
+        corridor_data = bpl.generate_corridor_data(points=points)
+
+        return corridor_data
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+
+@app.get("/api/metrics")
+async def get_metrics():
+    """
+    Get system metrics and adaptive learning statistics
+
+    Returns comprehensive metrics about:
+    - Current adaptive weights
+    - Historical accuracy rates
+    - System health (background services)
+    - Cache performance
+    - Recommendation statistics
+    """
+    try:
+        # Get weight statistics
+        weight_stats = weight_manager.get_stats()
+
+        # Get validation statistics
+        validation_stats = validation_service.get_validation_stats()
+
+        # Get history statistics
+        history_stats = history_tracker.get_stats()
+
+        # Get background service stats
+        background_stats = {}
+
+        if price_monitor:
+            background_stats['price_monitor'] = price_monitor.get_stats()
+
+        if validation_job:
+            background_stats['validation_job'] = validation_job.get_stats()
+
+        if weight_optimizer:
+            background_stats['weight_optimizer'] = weight_optimizer.get_stats()
+
+        return {
+            'system_health': {
+                'status': 'healthy',
+                'operating_mode': 'normal',  # TODO: Implement mode detection
+                'services_running': len([s for s in background_stats.values() if s.get('status') in ['healthy', 'running', 'active']])
+            },
+            'adaptive_weights': weight_stats,
+            'validation': validation_stats,
+            'history': history_stats,
+            'background_services': background_stats
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get metrics: {e}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={"error": str(e)}
