@@ -13,10 +13,10 @@ Usage:
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, time as dt_time
-from typing import Dict, Optional, Tuple
 import statistics
-from scipy import stats as scipy_stats
+from datetime import datetime, timedelta
+from datetime import time as dt_time
+from typing import Optional
 
 from ..database import get_db_session
 from ..database.models import Recommendation, ValidationResult, WeightHistory
@@ -43,7 +43,7 @@ class WeightOptimizer:
         rolling_window_days: int = 30,
         cold_start_days: int = 30,
         smoothing_factor: float = 0.3,
-        initial_weights: Optional[Dict[str, float]] = None
+        initial_weights: Optional[dict[str, float]] = None,
     ):
         """
         Initialize WeightOptimizer
@@ -60,11 +60,7 @@ class WeightOptimizer:
         self.cold_start_days = cold_start_days
         self.smoothing_factor = smoothing_factor
 
-        self.initial_weights = initial_weights or {
-            'technical': 0.60,
-            'reddit': 0.25,
-            'news': 0.15
-        }
+        self.initial_weights = initial_weights or {"technical": 0.60, "reddit": 0.25, "news": 0.15}
 
         self.last_run: Optional[datetime] = None
         self.optimization_count = 0
@@ -94,18 +90,16 @@ class WeightOptimizer:
             'technical', 'reddit', or 'news'
         """
         weights = {
-            'technical': rec.weight_technical,
-            'reddit': rec.weight_reddit,
-            'news': rec.weight_news
+            "technical": rec.weight_technical,
+            "reddit": rec.weight_reddit,
+            "news": rec.weight_news,
         }
 
         # Return signal with highest weight
         return max(weights.items(), key=lambda x: x[1])[0]
 
     def _calculate_sharpe_by_signal(
-        self,
-        signal_type: str,
-        window_start: datetime
+        self, signal_type: str, window_start: datetime
     ) -> Optional[float]:
         """
         Calculate Sharpe ratio for a specific signal type
@@ -123,17 +117,22 @@ class WeightOptimizer:
         try:
             with get_db_session() as session:
                 # Get validated recommendations
-                validations = session.query(ValidationResult).join(
-                    Recommendation
-                ).filter(
-                    Recommendation.timestamp >= window_start,
-                    ValidationResult.validation_type == 'standard_24h',
-                    ValidationResult.outcome.in_(['success', 'failure']),
-                    ValidationResult.pnl_pct.isnot(None)
-                ).all()
+                validations = (
+                    session.query(ValidationResult)
+                    .join(Recommendation)
+                    .filter(
+                        Recommendation.timestamp >= window_start,
+                        ValidationResult.validation_type == "standard_24h",
+                        ValidationResult.outcome.in_(["success", "failure"]),
+                        ValidationResult.pnl_pct.isnot(None),
+                    )
+                    .all()
+                )
 
                 if len(validations) < 10:
-                    logger.warning(f"Insufficient data for {signal_type}: {len(validations)} validations")
+                    logger.warning(
+                        f"Insufficient data for {signal_type}: {len(validations)} validations"
+                    )
                     return None
 
                 # Filter to recommendations dominated by this signal
@@ -146,7 +145,9 @@ class WeightOptimizer:
                         signal_pnls.append(val.pnl_pct)
 
                 if len(signal_pnls) < 5:
-                    logger.warning(f"Insufficient {signal_type} recommendations: {len(signal_pnls)}")
+                    logger.warning(
+                        f"Insufficient {signal_type} recommendations: {len(signal_pnls)}"
+                    )
                     return None
 
                 # Calculate Sharpe ratio
@@ -173,10 +174,8 @@ class WeightOptimizer:
             return None
 
     def _apply_bayesian_prior(
-        self,
-        calculated_weights: Dict[str, float],
-        days_of_data: int
-    ) -> Dict[str, float]:
+        self, calculated_weights: dict[str, float], days_of_data: int
+    ) -> dict[str, float]:
         """
         Apply Bayesian prior for cold start smoothing
 
@@ -201,17 +200,16 @@ class WeightOptimizer:
             logger.info(f"Applying Bayesian prior: {prior_weight:.1%} weight on initial beliefs")
 
             smoothed = {}
-            for signal in ['technical', 'reddit', 'news']:
+            for signal in ["technical", "reddit", "news"]:
                 smoothed[signal] = (
-                    prior_weight * self.initial_weights[signal] +
-                    (1 - prior_weight) * calculated_weights[signal]
+                    prior_weight * self.initial_weights[signal]
+                    + (1 - prior_weight) * calculated_weights[signal]
                 )
 
             return smoothed
-        else:
-            return calculated_weights
+        return calculated_weights
 
-    def _normalize_weights(self, weights: Dict[str, float]) -> Dict[str, float]:
+    def _normalize_weights(self, weights: dict[str, float]) -> dict[str, float]:
         """Ensure weights sum to 1.0"""
         total = sum(weights.values())
 
@@ -239,16 +237,12 @@ class WeightOptimizer:
             window_start = datetime.utcnow() - timedelta(days=self.rolling_window)
 
             # Calculate Sharpe ratios
-            sharpe_technical = self._calculate_sharpe_by_signal('technical', window_start)
-            sharpe_reddit = self._calculate_sharpe_by_signal('reddit', window_start)
-            sharpe_news = self._calculate_sharpe_by_signal('news', window_start)
+            sharpe_technical = self._calculate_sharpe_by_signal("technical", window_start)
+            sharpe_reddit = self._calculate_sharpe_by_signal("reddit", window_start)
+            sharpe_news = self._calculate_sharpe_by_signal("news", window_start)
 
             # Check if we have enough data
-            sharpes = {
-                'technical': sharpe_technical,
-                'reddit': sharpe_reddit,
-                'news': sharpe_news
-            }
+            sharpes = {"technical": sharpe_technical, "reddit": sharpe_reddit, "news": sharpe_news}
 
             # Replace None with 0 (treat as neutral if no data)
             sharpes = {k: (v if v is not None else 0.0) for k, v in sharpes.items()}
@@ -260,22 +254,17 @@ class WeightOptimizer:
 
             # Normalize Sharpes to weights
             total_sharpe = sum(sharpes_positive.values())
-            calculated_weights = {
-                k: v / total_sharpe for k, v in sharpes_positive.items()
-            }
+            calculated_weights = {k: v / total_sharpe for k, v in sharpes_positive.items()}
 
             logger.info(f"Calculated weights from Sharpe: {calculated_weights}")
 
             # Get days of data
             with get_db_session() as session:
-                first_rec = session.query(Recommendation).order_by(
-                    Recommendation.timestamp.asc()
-                ).first()
+                first_rec = (
+                    session.query(Recommendation).order_by(Recommendation.timestamp.asc()).first()
+                )
 
-                if first_rec:
-                    days_of_data = (datetime.utcnow() - first_rec.timestamp).days
-                else:
-                    days_of_data = 0
+                days_of_data = (datetime.utcnow() - first_rec.timestamp).days if first_rec else 0
 
             # Apply Bayesian prior
             prior_adjusted = self._apply_bayesian_prior(calculated_weights, days_of_data)
@@ -283,21 +272,20 @@ class WeightOptimizer:
 
             # Apply smoothing (combine with current weights)
             with get_db_session() as session:
-                current = session.query(WeightHistory).order_by(
-                    WeightHistory.timestamp.desc()
-                ).first()
+                current = (
+                    session.query(WeightHistory).order_by(WeightHistory.timestamp.desc()).first()
+                )
 
                 if current:
                     smoothed_weights = {}
-                    for signal in ['technical', 'reddit', 'news']:
-                        current_val = getattr(current, f'weight_{signal}')
+                    for signal in ["technical", "reddit", "news"]:
+                        current_val = getattr(current, f"weight_{signal}")
                         new_val = prior_adjusted[signal]
 
                         # Smoothing: 70% current, 30% new
                         smoothed_weights[signal] = (
-                            (1 - self.smoothing_factor) * current_val +
-                            self.smoothing_factor * new_val
-                        )
+                            1 - self.smoothing_factor
+                        ) * current_val + self.smoothing_factor * new_val
 
                     logger.info(f"After smoothing: {smoothed_weights}")
                 else:
@@ -310,14 +298,17 @@ class WeightOptimizer:
 
             # Calculate combined Sharpe
             with get_db_session() as session:
-                all_validations = session.query(ValidationResult).join(
-                    Recommendation
-                ).filter(
-                    Recommendation.timestamp >= window_start,
-                    ValidationResult.validation_type == 'standard_24h',
-                    ValidationResult.outcome.in_(['success', 'failure']),
-                    ValidationResult.pnl_pct.isnot(None)
-                ).all()
+                all_validations = (
+                    session.query(ValidationResult)
+                    .join(Recommendation)
+                    .filter(
+                        Recommendation.timestamp >= window_start,
+                        ValidationResult.validation_type == "standard_24h",
+                        ValidationResult.outcome.in_(["success", "failure"]),
+                        ValidationResult.pnl_pct.isnot(None),
+                    )
+                    .all()
+                )
 
                 if all_validations:
                     pnls = [v.pnl_pct for v in all_validations]
@@ -332,16 +323,16 @@ class WeightOptimizer:
             with get_db_session() as session:
                 new_weight_record = WeightHistory(
                     timestamp=datetime.utcnow(),
-                    weight_technical=final_weights['technical'],
-                    weight_reddit=final_weights['reddit'],
-                    weight_news=final_weights['news'],
-                    trigger_reason='daily_recalc',
+                    weight_technical=final_weights["technical"],
+                    weight_reddit=final_weights["reddit"],
+                    weight_news=final_weights["news"],
+                    trigger_reason="daily_recalc",
                     days_of_data=days_of_data,
                     prior_weight_factor=(0.7 if days_of_data < 30 else 0.0),
-                    sharpe_technical=sharpes['technical'],
-                    sharpe_reddit=sharpes['reddit'],
-                    sharpe_news=sharpes['news'],
-                    sharpe_combined=sharpe_combined
+                    sharpe_technical=sharpes["technical"],
+                    sharpe_reddit=sharpes["reddit"],
+                    sharpe_news=sharpes["news"],
+                    sharpe_combined=sharpe_combined,
                 )
 
                 session.add(new_weight_record)
@@ -391,7 +382,7 @@ class WeightOptimizer:
                 # Sleep 1 hour and retry
                 await asyncio.sleep(3600)
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """
         Get optimizer statistics
 
@@ -399,10 +390,10 @@ class WeightOptimizer:
             Dictionary with optimizer stats
         """
         return {
-            'status': 'active' if self.last_run else 'waiting_for_first_run',
-            'last_run': self.last_run.isoformat() if self.last_run else None,
-            'optimization_count': self.optimization_count,
-            'rolling_window_days': self.rolling_window,
-            'cold_start_days': self.cold_start_days,
-            'smoothing_factor': self.smoothing_factor
+            "status": "active" if self.last_run else "waiting_for_first_run",
+            "last_run": self.last_run.isoformat() if self.last_run else None,
+            "optimization_count": self.optimization_count,
+            "rolling_window_days": self.rolling_window,
+            "cold_start_days": self.cold_start_days,
+            "smoothing_factor": self.smoothing_factor,
         }

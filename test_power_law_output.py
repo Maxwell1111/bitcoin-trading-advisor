@@ -2,14 +2,15 @@
 """
 Direct Power Law analysis test - shows the power law calculations
 """
+
 import sys
 from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from src.data.price_fetcher import PriceFetcher
 from src.analysis.power_law import PowerLawModel
+from src.data.price_fetcher import PriceFetcher
 
 print("=" * 70)
 print("BITCOIN POWER LAW ANALYSIS TEST".center(70))
@@ -41,19 +42,23 @@ try:
     print(f"\nStatus: {results['status']}")
 
     # Calculate position relative to fair value
-    deviation = ((results['current_price'] - results['fair_value']) / results['fair_value']) * 100
+    deviation = ((results["current_price"] - results["fair_value"]) / results["fair_value"]) * 100
     print(f"Deviation from Fair Value: {deviation:+.1f}%")
 
     # Show corridor position
-    if results['current_price'] < results['support_value']:
-        below_support = ((results['support_value'] - results['current_price']) / results['support_value']) * 100
+    if results["current_price"] < results["support_value"]:
+        below_support = (
+            (results["support_value"] - results["current_price"]) / results["support_value"]
+        ) * 100
         print(f"Below Support by: {below_support:.1f}%")
-    elif results['current_price'] > results['resistance_value']:
-        above_resistance = ((results['current_price'] - results['resistance_value']) / results['resistance_value']) * 100
+    elif results["current_price"] > results["resistance_value"]:
+        above_resistance = (
+            (results["current_price"] - results["resistance_value"]) / results["resistance_value"]
+        ) * 100
         print(f"Above Resistance by: {above_resistance:.1f}%")
 
-    if results['mean_reversion_narrative']:
-        print(f"\nMean Reversion Signal:")
+    if results["mean_reversion_narrative"]:
+        print("\nMean Reversion Signal:")
         print(f"  {results['mean_reversion_narrative']}")
 
     print("\n" + "=" * 70)
@@ -68,5 +73,6 @@ try:
 except Exception as e:
     print(f"\n✗ Error: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)

@@ -2,11 +2,11 @@
 Cryptocurrency news fetcher - supports NewsAPI, Reddit, and Twitter/X
 """
 
-import requests
-from datetime import datetime, timedelta
-from typing import List, Dict
+import contextlib
 import time
-import json
+from datetime import datetime, timedelta
+
+import requests
 
 
 class NewsFetcher:
@@ -23,7 +23,7 @@ class NewsFetcher:
         self.api_key = api_key
         self.provider = provider.lower()
 
-    def fetch_news(self, keywords: List[str], days: int = 7, max_articles: int = 50) -> List[Dict]:
+    def fetch_news(self, keywords: list[str], days: int = 7, max_articles: int = 50) -> list[dict]:
         """
         Fetch news articles
 
@@ -37,14 +37,13 @@ class NewsFetcher:
         """
         if self.provider == "newsapi":
             return self._fetch_newsapi(keywords, days, max_articles)
-        elif self.provider == "cryptocontrol":
+        if self.provider == "cryptocontrol":
             return self._fetch_cryptocontrol(keywords, max_articles)
-        elif self.provider == "cryptopanic":
+        if self.provider == "cryptopanic":
             return self._fetch_cryptopanic(keywords, max_articles)
-        else:
-            raise ValueError(f"Unknown provider: {self.provider}")
+        raise ValueError(f"Unknown provider: {self.provider}")
 
-    def _fetch_newsapi(self, keywords: List[str], days: int, max_articles: int) -> List[Dict]:
+    def _fetch_newsapi(self, keywords: list[str], days: int, max_articles: int) -> list[dict]:
         """
         Fetch news from NewsAPI.org
 
@@ -60,13 +59,13 @@ class NewsFetcher:
         query = " OR ".join(keywords)
 
         params = {
-            'q': query,
-            'from': from_date.strftime('%Y-%m-%d'),
-            'to': to_date.strftime('%Y-%m-%d'),
-            'language': 'en',
-            'sortBy': 'publishedAt',
-            'pageSize': min(max_articles, 100),  # API limit
-            'apiKey': self.api_key
+            "q": query,
+            "from": from_date.strftime("%Y-%m-%d"),
+            "to": to_date.strftime("%Y-%m-%d"),
+            "language": "en",
+            "sortBy": "publishedAt",
+            "pageSize": min(max_articles, 100),  # API limit
+            "apiKey": self.api_key,
         }
 
         try:
@@ -74,34 +73,34 @@ class NewsFetcher:
             response.raise_for_status()
             data = response.json()
 
-            if data['status'] != 'ok':
+            if data["status"] != "ok":
                 raise Exception(f"NewsAPI error: {data.get('message', 'Unknown error')}")
 
             # Parse articles
             articles = []
-            for article in data.get('articles', []):
-                articles.append({
-                    'title': article.get('title', ''),
-                    'description': article.get('description', ''),
-                    'content': article.get('content', ''),
-                    'url': article.get('url', ''),
-                    'source': article.get('source', {}).get('name', ''),
-                    'published_date': article.get('publishedAt', ''),
-                    'author': article.get('author', '')
-                })
+            for article in data.get("articles", []):
+                articles.append(
+                    {
+                        "title": article.get("title", ""),
+                        "description": article.get("description", ""),
+                        "content": article.get("content", ""),
+                        "url": article.get("url", ""),
+                        "source": article.get("source", {}).get("name", ""),
+                        "published_date": article.get("publishedAt", ""),
+                        "author": article.get("author", ""),
+                    }
+                )
 
             return articles[:max_articles]
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"Error fetching news from NewsAPI: {e}")
 
-    def _fetch_cryptocontrol(self, keywords: List[str], max_articles: int) -> List[Dict]:
+    def _fetch_cryptocontrol(self, keywords: list[str], max_articles: int) -> list[dict]:
         """Fetch news from CryptoControl API"""
         url = "https://cryptocontrol.io/api/v1/public/news"
 
-        headers = {
-            'x-api-key': self.api_key
-        }
+        headers = {"x-api-key": self.api_key}
 
         try:
             response = requests.get(url, headers=headers, timeout=10)
@@ -111,22 +110,26 @@ class NewsFetcher:
             # Parse articles
             articles = []
             for article in data[:max_articles]:
-                articles.append({
-                    'title': article.get('title', ''),
-                    'description': article.get('description', ''),
-                    'content': article.get('description', ''),  # CryptoControl doesn't provide full content
-                    'url': article.get('url', ''),
-                    'source': article.get('source', ''),
-                    'published_date': article.get('publishedAt', ''),
-                    'author': ''
-                })
+                articles.append(
+                    {
+                        "title": article.get("title", ""),
+                        "description": article.get("description", ""),
+                        "content": article.get(
+                            "description", ""
+                        ),  # CryptoControl doesn't provide full content
+                        "url": article.get("url", ""),
+                        "source": article.get("source", ""),
+                        "published_date": article.get("publishedAt", ""),
+                        "author": "",
+                    }
+                )
 
             return articles
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"Error fetching news from CryptoControl: {e}")
 
-    def _fetch_cryptopanic(self, keywords: List[str], max_articles: int) -> List[Dict]:
+    def _fetch_cryptopanic(self, keywords: list[str], max_articles: int) -> list[dict]:
         """
         Fetch news from CryptoPanic API
 
@@ -135,10 +138,10 @@ class NewsFetcher:
         url = "https://cryptopanic.com/api/v1/posts/"
 
         params = {
-            'auth_token': self.api_key if self.api_key else None,
-            'currencies': 'BTC',
-            'kind': 'news',
-            'filter': 'hot'
+            "auth_token": self.api_key if self.api_key else None,
+            "currencies": "BTC",
+            "kind": "news",
+            "filter": "hot",
         }
 
         # Remove None values
@@ -151,23 +154,27 @@ class NewsFetcher:
 
             # Parse articles
             articles = []
-            for post in data.get('results', [])[:max_articles]:
-                articles.append({
-                    'title': post.get('title', ''),
-                    'description': post.get('title', ''),  # CryptoPanic doesn't provide description
-                    'content': post.get('title', ''),
-                    'url': post.get('url', ''),
-                    'source': post.get('source', {}).get('title', ''),
-                    'published_date': post.get('published_at', ''),
-                    'author': ''
-                })
+            for post in data.get("results", [])[:max_articles]:
+                articles.append(
+                    {
+                        "title": post.get("title", ""),
+                        "description": post.get(
+                            "title", ""
+                        ),  # CryptoPanic doesn't provide description
+                        "content": post.get("title", ""),
+                        "url": post.get("url", ""),
+                        "source": post.get("source", {}).get("title", ""),
+                        "published_date": post.get("published_at", ""),
+                        "author": "",
+                    }
+                )
 
             return articles
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"Error fetching news from CryptoPanic: {e}")
 
-    def get_article_text(self, article: Dict) -> str:
+    def get_article_text(self, article: dict) -> str:
         """
         Get full text from article for sentiment analysis
 
@@ -179,15 +186,15 @@ class NewsFetcher:
         """
         text_parts = []
 
-        if article.get('title'):
-            text_parts.append(article['title'])
+        if article.get("title"):
+            text_parts.append(article["title"])
 
-        if article.get('description'):
-            text_parts.append(article['description'])
+        if article.get("description"):
+            text_parts.append(article["description"])
 
-        if article.get('content') and article['content'] not in text_parts:
+        if article.get("content") and article["content"] not in text_parts:
             # Some APIs truncate content, only add if unique
-            content = article['content']
+            content = article["content"]
             if content and len(content) > 50:
                 text_parts.append(content)
 
@@ -201,36 +208,36 @@ class MockNewsFetcher(NewsFetcher):
     def __init__(self):
         super().__init__(api_key="mock_key", provider="newsapi")
 
-    def fetch_news(self, keywords: List[str], days: int = 7, max_articles: int = 50) -> List[Dict]:
+    def fetch_news(self, keywords: list[str], days: int = 7, max_articles: int = 50) -> list[dict]:
         """Return mock news data"""
         mock_articles = [
             {
-                'title': 'Bitcoin Reaches New All-Time High as Institutional Adoption Grows',
-                'description': 'Major financial institutions continue to add Bitcoin to their portfolios.',
-                'content': 'Bitcoin has reached a new milestone as institutional investors...',
-                'url': 'https://example.com/article1',
-                'source': 'Crypto News',
-                'published_date': datetime.now().isoformat(),
-                'author': 'John Doe'
+                "title": "Bitcoin Reaches New All-Time High as Institutional Adoption Grows",
+                "description": "Major financial institutions continue to add Bitcoin to their portfolios.",
+                "content": "Bitcoin has reached a new milestone as institutional investors...",
+                "url": "https://example.com/article1",
+                "source": "Crypto News",
+                "published_date": datetime.now().isoformat(),
+                "author": "John Doe",
             },
             {
-                'title': 'Regulatory Concerns Cause Bitcoin Price Volatility',
-                'description': 'New regulatory proposals create uncertainty in the crypto market.',
-                'content': 'Government officials announced new cryptocurrency regulations...',
-                'url': 'https://example.com/article2',
-                'source': 'Financial Times',
-                'published_date': (datetime.now() - timedelta(days=1)).isoformat(),
-                'author': 'Jane Smith'
+                "title": "Regulatory Concerns Cause Bitcoin Price Volatility",
+                "description": "New regulatory proposals create uncertainty in the crypto market.",
+                "content": "Government officials announced new cryptocurrency regulations...",
+                "url": "https://example.com/article2",
+                "source": "Financial Times",
+                "published_date": (datetime.now() - timedelta(days=1)).isoformat(),
+                "author": "Jane Smith",
             },
             {
-                'title': 'Bitcoin Mining Becomes More Sustainable with Renewable Energy',
-                'description': 'Major mining operations transition to clean energy sources.',
-                'content': 'Bitcoin miners are increasingly adopting renewable energy...',
-                'url': 'https://example.com/article3',
-                'source': 'Green Tech',
-                'published_date': (datetime.now() - timedelta(days=2)).isoformat(),
-                'author': 'Mike Johnson'
-            }
+                "title": "Bitcoin Mining Becomes More Sustainable with Renewable Energy",
+                "description": "Major mining operations transition to clean energy sources.",
+                "content": "Bitcoin miners are increasingly adopting renewable energy...",
+                "url": "https://example.com/article3",
+                "source": "Green Tech",
+                "published_date": (datetime.now() - timedelta(days=2)).isoformat(),
+                "author": "Mike Johnson",
+            },
         ]
 
         return mock_articles[:max_articles]
@@ -248,12 +255,11 @@ class RedditFetcher:
         """Initialize Reddit fetcher"""
         self.base_url = "https://www.reddit.com"
         # User agent required by Reddit API
-        self.headers = {
-            'User-Agent': 'BitcoinTradingAdvisor/1.0'
-        }
+        self.headers = {"User-Agent": "BitcoinTradingAdvisor/1.0"}
 
-    def fetch_posts(self, subreddits: List[str] = None, limit: int = 50,
-                    time_filter: str = 'day') -> List[Dict]:
+    def fetch_posts(
+        self, subreddits: list[str] = None, limit: int = 50, time_filter: str = "day"
+    ) -> list[dict]:
         """
         Fetch hot posts from Bitcoin-related subreddits
 
@@ -266,7 +272,7 @@ class RedditFetcher:
             List of posts with title, text, score, url, created_time
         """
         if subreddits is None:
-            subreddits = ['Bitcoin', 'CryptoCurrency']
+            subreddits = ["Bitcoin", "CryptoCurrency"]
 
         all_posts = []
 
@@ -275,8 +281,8 @@ class RedditFetcher:
                 # Fetch hot posts from subreddit
                 url = f"{self.base_url}/r/{subreddit}/hot.json"
                 params = {
-                    'limit': min(limit, 100),  # Reddit API limit
-                    't': time_filter
+                    "limit": min(limit, 100),  # Reddit API limit
+                    "t": time_filter,
                 }
 
                 response = requests.get(url, headers=self.headers, params=params, timeout=10)
@@ -284,29 +290,32 @@ class RedditFetcher:
                 data = response.json()
 
                 # Parse posts
-                for post in data.get('data', {}).get('children', []):
-                    post_data = post.get('data', {})
+                for post in data.get("data", {}).get("children", []):
+                    post_data = post.get("data", {})
 
                     # Only include posts that mention bitcoin/btc/crypto
-                    title = post_data.get('title', '').lower()
-                    selftext = post_data.get('selftext', '').lower()
+                    title = post_data.get("title", "").lower()
+                    selftext = post_data.get("selftext", "").lower()
 
-                    if any(keyword in title or keyword in selftext
-                           for keyword in ['bitcoin', 'btc', 'crypto']):
-
-                        all_posts.append({
-                            'title': post_data.get('title', ''),
-                            'description': post_data.get('selftext', '')[:500],  # Limit length
-                            'content': post_data.get('selftext', ''),
-                            'url': f"https://reddit.com{post_data.get('permalink', '')}",
-                            'source': f"r/{subreddit}",
-                            'published_date': datetime.fromtimestamp(
-                                post_data.get('created_utc', 0)
-                            ).isoformat(),
-                            'author': post_data.get('author', ''),
-                            'score': post_data.get('score', 0),  # Reddit upvotes
-                            'num_comments': post_data.get('num_comments', 0)
-                        })
+                    if any(
+                        keyword in title or keyword in selftext
+                        for keyword in ["bitcoin", "btc", "crypto"]
+                    ):
+                        all_posts.append(
+                            {
+                                "title": post_data.get("title", ""),
+                                "description": post_data.get("selftext", "")[:500],  # Limit length
+                                "content": post_data.get("selftext", ""),
+                                "url": f"https://reddit.com{post_data.get('permalink', '')}",
+                                "source": f"r/{subreddit}",
+                                "published_date": datetime.fromtimestamp(
+                                    post_data.get("created_utc", 0)
+                                ).isoformat(),
+                                "author": post_data.get("author", ""),
+                                "score": post_data.get("score", 0),  # Reddit upvotes
+                                "num_comments": post_data.get("num_comments", 0),
+                            }
+                        )
 
                 # Respect Reddit rate limits
                 time.sleep(1)
@@ -316,7 +325,7 @@ class RedditFetcher:
                 continue
 
         # Sort by score (upvotes) to get most popular posts
-        all_posts.sort(key=lambda x: x.get('score', 0), reverse=True)
+        all_posts.sort(key=lambda x: x.get("score", 0), reverse=True)
 
         return all_posts[:limit]
 
@@ -344,7 +353,7 @@ class TwitterFetcher:
             print("To enable: Get Bearer Token from https://developer.twitter.com/")
             print("Cost: $100/month for Basic tier")
 
-    def fetch_tweets(self, keywords: List[str] = None, max_results: int = 50) -> List[Dict]:
+    def fetch_tweets(self, keywords: list[str] = None, max_results: int = 50) -> list[dict]:
         """
         Fetch recent tweets about Bitcoin
 
@@ -359,23 +368,21 @@ class TwitterFetcher:
             return []
 
         if keywords is None:
-            keywords = ['bitcoin', 'btc']
+            keywords = ["bitcoin", "btc"]
 
         url = "https://api.twitter.com/2/tweets/search/recent"
 
         # Build query
         query = " OR ".join(keywords) + " -is:retweet lang:en"
 
-        headers = {
-            'Authorization': f'Bearer {self.bearer_token}'
-        }
+        headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
         params = {
-            'query': query,
-            'max_results': min(max_results, 100),
-            'tweet.fields': 'created_at,public_metrics,author_id',
-            'expansions': 'author_id',
-            'user.fields': 'username,verified'
+            "query": query,
+            "max_results": min(max_results, 100),
+            "tweet.fields": "created_at,public_metrics,author_id",
+            "expansions": "author_id",
+            "user.fields": "username,verified",
         }
 
         try:
@@ -385,24 +392,26 @@ class TwitterFetcher:
 
             # Parse tweets
             tweets = []
-            users = {user['id']: user for user in data.get('includes', {}).get('users', [])}
+            users = {user["id"]: user for user in data.get("includes", {}).get("users", [])}
 
-            for tweet in data.get('data', []):
-                author = users.get(tweet.get('author_id', ''), {})
-                metrics = tweet.get('public_metrics', {})
+            for tweet in data.get("data", []):
+                author = users.get(tweet.get("author_id", ""), {})
+                metrics = tweet.get("public_metrics", {})
 
-                tweets.append({
-                    'title': tweet.get('text', '')[:100],  # First 100 chars as title
-                    'description': tweet.get('text', ''),
-                    'content': tweet.get('text', ''),
-                    'url': f"https://twitter.com/i/web/status/{tweet.get('id', '')}",
-                    'source': 'Twitter',
-                    'published_date': tweet.get('created_at', ''),
-                    'author': author.get('username', ''),
-                    'verified': author.get('verified', False),
-                    'likes': metrics.get('like_count', 0),
-                    'retweets': metrics.get('retweet_count', 0)
-                })
+                tweets.append(
+                    {
+                        "title": tweet.get("text", "")[:100],  # First 100 chars as title
+                        "description": tweet.get("text", ""),
+                        "content": tweet.get("text", ""),
+                        "url": f"https://twitter.com/i/web/status/{tweet.get('id', '')}",
+                        "source": "Twitter",
+                        "published_date": tweet.get("created_at", ""),
+                        "author": author.get("username", ""),
+                        "verified": author.get("verified", False),
+                        "likes": metrics.get("like_count", 0),
+                        "retweets": metrics.get("retweet_count", 0),
+                    }
+                )
 
             return tweets
 
@@ -432,15 +441,13 @@ class MultiSourceFetcher:
         # Initialize all sources
         self.news_fetcher = None
         if newsapi_key:
-            try:
-                self.news_fetcher = NewsFetcher(api_key=newsapi_key, provider='newsapi')
-            except:
-                pass
+            with contextlib.suppress(BaseException):
+                self.news_fetcher = NewsFetcher(api_key=newsapi_key, provider="newsapi")
 
         self.reddit_fetcher = RedditFetcher()
         self.twitter_fetcher = TwitterFetcher(bearer_token=twitter_bearer_token)
 
-    def fetch_all(self, max_per_source: int = 50) -> Dict[str, List[Dict]]:
+    def fetch_all(self, max_per_source: int = 50) -> dict[str, list[dict]]:
         """
         Fetch from all available sources
 
@@ -450,28 +457,23 @@ class MultiSourceFetcher:
         Returns:
             Dictionary with sources as keys and lists of items as values
         """
-        results = {
-            'news': [],
-            'reddit': [],
-            'twitter': []
-        }
+        results = {"news": [], "reddit": [], "twitter": []}
 
         # Fetch from NewsAPI
         if self.news_fetcher:
             try:
-                results['news'] = self.news_fetcher.fetch_news(
-                    keywords=['bitcoin', 'btc', 'cryptocurrency'],
+                results["news"] = self.news_fetcher.fetch_news(
+                    keywords=["bitcoin", "btc", "cryptocurrency"],
                     days=7,
-                    max_articles=max_per_source
+                    max_articles=max_per_source,
                 )
             except Exception as e:
                 print(f"NewsAPI error: {e}")
 
         # Fetch from Reddit (always available - FREE)
         try:
-            results['reddit'] = self.reddit_fetcher.fetch_posts(
-                limit=max_per_source,
-                time_filter='day'
+            results["reddit"] = self.reddit_fetcher.fetch_posts(
+                limit=max_per_source, time_filter="day"
             )
         except Exception as e:
             print(f"Reddit error: {e}")
@@ -479,15 +481,13 @@ class MultiSourceFetcher:
         # Fetch from Twitter (if enabled)
         if self.twitter_fetcher.enabled:
             try:
-                results['twitter'] = self.twitter_fetcher.fetch_tweets(
-                    max_results=max_per_source
-                )
+                results["twitter"] = self.twitter_fetcher.fetch_tweets(max_results=max_per_source)
             except Exception as e:
                 print(f"Twitter error: {e}")
 
         return results
 
-    def get_combined_items(self, max_per_source: int = 25) -> List[Dict]:
+    def get_combined_items(self, max_per_source: int = 25) -> list[dict]:
         """
         Get combined list of all items from all sources
 
@@ -505,7 +505,7 @@ class MultiSourceFetcher:
                 if items:  # Only process if we have items
                     for item in items:
                         # Add source type tag
-                        item['source_type'] = source_type
+                        item["source_type"] = source_type
                         combined.append(item)
 
             return combined

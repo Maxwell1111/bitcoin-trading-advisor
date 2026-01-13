@@ -2,11 +2,8 @@ import os
 import signal
 import subprocess
 from contextlib import contextmanager
-import time
-from warnings import warn
 from pathlib import Path
-import atexit
-from threading import Thread
+from warnings import warn
 
 HERE = Path(__file__).parent
 WWW = HERE / "www"
@@ -69,7 +66,7 @@ def perform_npm_build() -> None:
     cmd_str = subprocess.list2cmdline(cmd_list)
     return_code = os.system(cmd_str)
     if return_code != 0:
-        warn(f"npm install returned {return_code}")
+        warn(f"npm install returned {return_code}", stacklevel=2)
         return
     # Then build to www/dist
     cmd_list: list[str] = [
@@ -84,7 +81,7 @@ def perform_npm_build() -> None:
     print(f"Running: {cmd_str}, in {WWW.absolute()}...")
     return_code = os.system(cmd_str)
     if return_code != 0:
-        warn(f"npm run build returned {return_code}, you will not have a file server")
+        warn(f"npm run build returned {return_code}, you will not have a file server", stacklevel=2)
         return
     print("Front end built.")
 
@@ -102,7 +99,7 @@ def main() -> None:
         try:
             rtn = process.wait()
             if rtn != 0:
-                warn(f"Background process returned {rtn}")
+                warn(f"Background process returned {rtn}", stacklevel=2)
         except KeyboardInterrupt:
             # Handle Ctrl-C
             pass

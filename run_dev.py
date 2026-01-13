@@ -58,7 +58,7 @@ def run_npm_server() -> None:
 
 def run_background_tasks() -> None:
     """Run the background tasks."""
-    data: list[subprocess.Popen] = list()
+    data: list[subprocess.Popen] = []
 
     def kill_proc() -> None:
         if data:
@@ -79,10 +79,10 @@ def run_background_tasks() -> None:
 def check_python_dependencies() -> bool:
     """Check all dependencies."""
     # get requirements from requirements.txt
-    with open("requirements.txt", encoding="utf-8", mode="r") as f:
+    with open("requirements.txt", encoding="utf-8") as f:
         requirements = f.read().splitlines()
     # now add in requirements from requirements.testing.txt
-    with open("requirements.testing.txt", encoding="utf-8", mode="r") as f:
+    with open("requirements.testing.txt", encoding="utf-8") as f:
         requirements += f.read().splitlines()
     # remove comments
     requirements = [r.split("#")[0].strip() for r in requirements]
@@ -93,6 +93,7 @@ def check_python_dependencies() -> bool:
     packages = [p for p in packages if p]
     # check each package
     import pkg_resources  # pylint: disable=import-outside-toplevel
+
     any_uninstalled = False
     for package in packages:
         try:
@@ -103,9 +104,11 @@ def check_python_dependencies() -> bool:
             any_uninstalled = True
     return any_uninstalled
 
+
 def install_deps() -> None:
     python_exe = sys.executable
     subprocess.run(f"{python_exe} -m pip install -e .", shell=True, cwd=HERE, check=False)
+
 
 ANY_PYTHON_DEPS_UNINSTALLED = check_python_dependencies()
 if ANY_PYTHON_DEPS_UNINSTALLED:

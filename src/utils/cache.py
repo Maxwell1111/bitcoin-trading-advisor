@@ -18,9 +18,8 @@ class SimpleCache:
             value, expiry = self._cache[key]
             if time.time() < expiry:
                 return value
-            else:
-                # Expired, remove it
-                del self._cache[key]
+            # Expired, remove it
+            del self._cache[key]
         return None
 
     def set(self, key: str, value: Any, ttl: int = 60):

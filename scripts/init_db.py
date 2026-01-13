@@ -11,15 +11,15 @@ Usage:
     python scripts/init_db.py --check            # Just check status
 """
 
-import sys
 import argparse
+import sys
 from pathlib import Path
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.database import init_database, get_db_session
-from src.database.models import Recommendation, WeightHistory, AccuracyAggregate
+from src.database import get_db_session, init_database
+from src.database.models import AccuracyAggregate, Recommendation, WeightHistory
 
 
 def check_database_status():
@@ -38,9 +38,9 @@ def check_database_status():
             print(f"Accuracy Aggregates:  {agg_count:,}")
 
             if weight_count > 0:
-                latest_weight = session.query(WeightHistory).order_by(
-                    WeightHistory.timestamp.desc()
-                ).first()
+                latest_weight = (
+                    session.query(WeightHistory).order_by(WeightHistory.timestamp.desc()).first()
+                )
                 print("\nLatest Weights:")
                 print(f"  Technical: {latest_weight.weight_technical:.2%}")
                 print(f"  Reddit:    {latest_weight.weight_reddit:.2%}")
@@ -58,19 +58,21 @@ def check_database_status():
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Initialize Bitcoin Advisor database',
+        description="Initialize Bitcoin Advisor database",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   python scripts/init_db.py              # Initialize database
   python scripts/init_db.py --reset      # Reset database (WARNING: deletes data!)
   python scripts/init_db.py --check      # Check database status
-        """
+        """,
     )
-    parser.add_argument('--reset', action='store_true',
-                        help='Drop and recreate all tables (DELETES ALL DATA!)')
-    parser.add_argument('--check', action='store_true',
-                        help='Check database status without modifying')
+    parser.add_argument(
+        "--reset", action="store_true", help="Drop and recreate all tables (DELETES ALL DATA!)"
+    )
+    parser.add_argument(
+        "--check", action="store_true", help="Check database status without modifying"
+    )
 
     args = parser.parse_args()
 
@@ -83,7 +85,7 @@ Examples:
             "\n⚠️  WARNING: This will DELETE ALL DATA in the database!\n"
             "Are you sure you want to continue? (type 'yes' to confirm): "
         )
-        if response.lower() != 'yes':
+        if response.lower() != "yes":
             print("❌ Reset cancelled.")
             return
 

@@ -2,17 +2,22 @@
 Technical analysis module - RSI, MACD, and Moving Averages
 """
 
-import pandas as pd
 import numpy as np
-from typing import Dict, Tuple, List
+import pandas as pd
 
 
 class TechnicalAnalyzer:
     """Calculate technical indicators (RSI, MACD, Moving Averages)"""
 
-    def __init__(self, rsi_period: int = 14, macd_fast: int = 12,
-                 macd_slow: int = 26, macd_signal: int = 9,
-                 sma_periods: List[int] = None, ema_periods: List[int] = None):
+    def __init__(
+        self,
+        rsi_period: int = 14,
+        macd_fast: int = 12,
+        macd_slow: int = 26,
+        macd_signal: int = 9,
+        sma_periods: list[int] = None,
+        ema_periods: list[int] = None,
+    ):
         """
         Initialize technical analyzer
 
@@ -32,7 +37,7 @@ class TechnicalAnalyzer:
         self.sma_periods = sma_periods or [20, 50, 100, 200]
         self.ema_periods = ema_periods or [9, 20, 21, 50, 100, 147, 200]  # Added 20, 147 (21-week)
 
-    def calculate_rsi(self, data: pd.DataFrame, column: str = 'close') -> pd.Series:
+    def calculate_rsi(self, data: pd.DataFrame, column: str = "close") -> pd.Series:
         """
         Calculate Relative Strength Index (RSI)
 
@@ -62,7 +67,9 @@ class TechnicalAnalyzer:
 
         return rsi
 
-    def calculate_macd(self, data: pd.DataFrame, column: str = 'close') -> Tuple[pd.Series, pd.Series, pd.Series]:
+    def calculate_macd(
+        self, data: pd.DataFrame, column: str = "close"
+    ) -> tuple[pd.Series, pd.Series, pd.Series]:
         """
         Calculate MACD (Moving Average Convergence Divergence)
 
@@ -90,7 +97,7 @@ class TechnicalAnalyzer:
 
         return macd_line, signal_line, histogram
 
-    def calculate_sma(self, data: pd.DataFrame, period: int, column: str = 'close') -> pd.Series:
+    def calculate_sma(self, data: pd.DataFrame, period: int, column: str = "close") -> pd.Series:
         """
         Calculate Simple Moving Average (SMA)
 
@@ -104,7 +111,7 @@ class TechnicalAnalyzer:
         """
         return data[column].rolling(window=period).mean()
 
-    def calculate_ema(self, data: pd.DataFrame, period: int, column: str = 'close') -> pd.Series:
+    def calculate_ema(self, data: pd.DataFrame, period: int, column: str = "close") -> pd.Series:
         """
         Calculate Exponential Moving Average (EMA)
 
@@ -118,7 +125,7 @@ class TechnicalAnalyzer:
         """
         return data[column].ewm(span=period, adjust=False).mean()
 
-    def calculate_moving_averages(self, data: pd.DataFrame) -> Dict:
+    def calculate_moving_averages(self, data: pd.DataFrame) -> dict:
         """
         Calculate multiple SMAs and EMAs
 
@@ -128,36 +135,36 @@ class TechnicalAnalyzer:
         Returns:
             Dictionary with all moving averages
         """
-        current_price = data['close'].iloc[-1]
+        current_price = data["close"].iloc[-1]
         mas = {}
 
         # Calculate SMAs
         for period in self.sma_periods:
             if len(data) >= period:
                 sma = self.calculate_sma(data, period)
-                mas[f'sma_{period}'] = {
-                    'value': round(sma.iloc[-1], 2),
-                    'period': period,
-                    'type': 'SMA',
-                    'price_vs_ma': 'above' if current_price > sma.iloc[-1] else 'below',
-                    'distance_pct': round(((current_price / sma.iloc[-1]) - 1) * 100, 2)
+                mas[f"sma_{period}"] = {
+                    "value": round(sma.iloc[-1], 2),
+                    "period": period,
+                    "type": "SMA",
+                    "price_vs_ma": "above" if current_price > sma.iloc[-1] else "below",
+                    "distance_pct": round(((current_price / sma.iloc[-1]) - 1) * 100, 2),
                 }
 
         # Calculate EMAs
         for period in self.ema_periods:
             if len(data) >= period:
                 ema = self.calculate_ema(data, period)
-                mas[f'ema_{period}'] = {
-                    'value': round(ema.iloc[-1], 2),
-                    'period': period,
-                    'type': 'EMA',
-                    'price_vs_ma': 'above' if current_price > ema.iloc[-1] else 'below',
-                    'distance_pct': round(((current_price / ema.iloc[-1]) - 1) * 100, 2)
+                mas[f"ema_{period}"] = {
+                    "value": round(ema.iloc[-1], 2),
+                    "period": period,
+                    "type": "EMA",
+                    "price_vs_ma": "above" if current_price > ema.iloc[-1] else "below",
+                    "distance_pct": round(((current_price / ema.iloc[-1]) - 1) * 100, 2),
                 }
 
         return mas
 
-    def detect_ma_crossovers(self, data: pd.DataFrame) -> Dict:
+    def detect_ma_crossovers(self, data: pd.DataFrame) -> dict:
         """
         Detect moving average crossovers (Golden Cross, Death Cross, etc.)
 
@@ -180,16 +187,16 @@ class TechnicalAnalyzer:
             prev_200 = sma_200.iloc[-2] if len(sma_200) > 1 else current_200
 
             if prev_50 <= prev_200 and current_50 > current_200:
-                crossovers['golden_cross'] = True
-                crossovers['golden_cross_signal'] = 'Strong Bullish - Golden Cross detected!'
+                crossovers["golden_cross"] = True
+                crossovers["golden_cross_signal"] = "Strong Bullish - Golden Cross detected!"
             elif prev_50 >= prev_200 and current_50 < current_200:
-                crossovers['death_cross'] = True
-                crossovers['death_cross_signal'] = 'Strong Bearish - Death Cross detected!'
+                crossovers["death_cross"] = True
+                crossovers["death_cross_signal"] = "Strong Bearish - Death Cross detected!"
             else:
-                crossovers['golden_cross'] = False
-                crossovers['death_cross'] = False
+                crossovers["golden_cross"] = False
+                crossovers["death_cross"] = False
 
-            crossovers['sma_50_vs_200'] = 'above' if current_50 > current_200 else 'below'
+            crossovers["sma_50_vs_200"] = "above" if current_50 > current_200 else "below"
 
         # Short-term crossover (9 EMA vs 21 EMA)
         if len(data) >= 21:
@@ -202,18 +209,18 @@ class TechnicalAnalyzer:
             prev_21 = ema_21.iloc[-2] if len(ema_21) > 1 else current_21
 
             if prev_9 <= prev_21 and current_9 > current_21:
-                crossovers['short_term_bullish_cross'] = True
+                crossovers["short_term_bullish_cross"] = True
             elif prev_9 >= prev_21 and current_9 < current_21:
-                crossovers['short_term_bearish_cross'] = True
+                crossovers["short_term_bearish_cross"] = True
             else:
-                crossovers['short_term_bullish_cross'] = False
-                crossovers['short_term_bearish_cross'] = False
+                crossovers["short_term_bullish_cross"] = False
+                crossovers["short_term_bearish_cross"] = False
 
-            crossovers['ema_9_vs_21'] = 'above' if current_9 > current_21 else 'below'
+            crossovers["ema_9_vs_21"] = "above" if current_9 > current_21 else "below"
 
         return crossovers
 
-    def analyze_ma_trend(self, data: pd.DataFrame) -> Dict:
+    def analyze_ma_trend(self, data: pd.DataFrame) -> dict:
         """
         Analyze overall trend based on moving averages
 
@@ -223,17 +230,13 @@ class TechnicalAnalyzer:
         Returns:
             Dictionary with trend analysis
         """
-        current_price = data['close'].iloc[-1]
+        current_price = data["close"].iloc[-1]
         trend_signals = []
         bullish_count = 0
         bearish_count = 0
 
         # Check price vs key moving averages
-        ma_checks = [
-            (20, 'short'),
-            (50, 'medium'),
-            (200, 'long')
-        ]
+        ma_checks = [(20, "short"), (50, "medium"), (200, "long")]
 
         trend_analysis = {}
 
@@ -257,11 +260,11 @@ class TechnicalAnalyzer:
                 else:
                     bearish_count += 1
 
-                trend_analysis[f'{term}_term'] = {
-                    'sma': sma_val,
-                    'ema': ema_val,
-                    'price_vs_sma': 'above' if current_price > sma_val else 'below',
-                    'price_vs_ema': 'above' if current_price > ema_val else 'below'
+                trend_analysis[f"{term}_term"] = {
+                    "sma": sma_val,
+                    "ema": ema_val,
+                    "price_vs_sma": "above" if current_price > sma_val else "below",
+                    "price_vs_ema": "above" if current_price > ema_val else "below",
                 }
 
         # Overall trend determination
@@ -270,31 +273,31 @@ class TechnicalAnalyzer:
             bullish_ratio = bullish_count / total_signals
 
             if bullish_ratio >= 0.7:
-                overall_trend = 'strong_uptrend'
-                recommendation = 'buy'
+                overall_trend = "strong_uptrend"
+                recommendation = "buy"
             elif bullish_ratio >= 0.5:
-                overall_trend = 'uptrend'
-                recommendation = 'buy'
+                overall_trend = "uptrend"
+                recommendation = "buy"
             elif bullish_ratio >= 0.3:
-                overall_trend = 'neutral'
-                recommendation = 'hold'
+                overall_trend = "neutral"
+                recommendation = "hold"
             else:
-                overall_trend = 'downtrend'
-                recommendation = 'sell'
+                overall_trend = "downtrend"
+                recommendation = "sell"
         else:
-            overall_trend = 'neutral'
-            recommendation = 'hold'
+            overall_trend = "neutral"
+            recommendation = "hold"
 
         return {
-            'overall_trend': overall_trend,
-            'recommendation': recommendation,
-            'bullish_signals': bullish_count,
-            'bearish_signals': bearish_count,
-            'bullish_ratio': round(bullish_ratio, 2) if total_signals > 0 else 0.5,
-            'trend_details': trend_analysis
+            "overall_trend": overall_trend,
+            "recommendation": recommendation,
+            "bullish_signals": bullish_count,
+            "bearish_signals": bearish_count,
+            "bullish_ratio": round(bullish_ratio, 2) if total_signals > 0 else 0.5,
+            "trend_details": trend_analysis,
         }
 
-    def analyze(self, data: pd.DataFrame) -> Dict:
+    def analyze(self, data: pd.DataFrame) -> dict:
         """
         Perform full technical analysis
 
@@ -353,20 +356,24 @@ class TechnicalAnalyzer:
         ma_trend = self.analyze_ma_trend(data)
 
         # Combined technical signal (now including MA analysis)
-        buy_signals = sum([
-            rsi_recommendation == "buy",
-            macd_recommendation == "buy",
-            ma_trend['recommendation'] == "buy",
-            ma_crossovers.get('golden_cross', False),
-            ma_crossovers.get('short_term_bullish_cross', False)
-        ])
-        sell_signals = sum([
-            rsi_recommendation == "sell",
-            macd_recommendation == "sell",
-            ma_trend['recommendation'] == "sell",
-            ma_crossovers.get('death_cross', False),
-            ma_crossovers.get('short_term_bearish_cross', False)
-        ])
+        buy_signals = sum(
+            [
+                rsi_recommendation == "buy",
+                macd_recommendation == "buy",
+                ma_trend["recommendation"] == "buy",
+                ma_crossovers.get("golden_cross", False),
+                ma_crossovers.get("short_term_bullish_cross", False),
+            ]
+        )
+        sell_signals = sum(
+            [
+                rsi_recommendation == "sell",
+                macd_recommendation == "sell",
+                ma_trend["recommendation"] == "sell",
+                ma_crossovers.get("death_cross", False),
+                ma_crossovers.get("short_term_bearish_cross", False),
+            ]
+        )
 
         total_indicators = 5  # RSI, MACD, MA trend, long-term crossover, short-term crossover
 
@@ -381,28 +388,28 @@ class TechnicalAnalyzer:
             confidence = 0.5
 
         return {
-            'rsi': {
-                'value': round(current_rsi, 2),
-                'signal': rsi_signal,
-                'recommendation': rsi_recommendation
+            "rsi": {
+                "value": round(current_rsi, 2),
+                "signal": rsi_signal,
+                "recommendation": rsi_recommendation,
             },
-            'macd': {
-                'macd_line': round(current_macd, 2),
-                'signal_line': round(current_signal, 2),
-                'histogram': round(current_histogram, 2),
-                'signal': macd_signal,
-                'recommendation': macd_recommendation
+            "macd": {
+                "macd_line": round(current_macd, 2),
+                "signal_line": round(current_signal, 2),
+                "histogram": round(current_histogram, 2),
+                "signal": macd_signal,
+                "recommendation": macd_recommendation,
             },
-            'moving_averages': moving_averages,
-            'ma_crossovers': ma_crossovers,
-            'ma_trend': ma_trend,
-            'overall': {
-                'recommendation': overall_recommendation,
-                'confidence': round(confidence, 2),
-                'buy_signals': buy_signals,
-                'sell_signals': sell_signals,
-                'total_indicators': total_indicators
-            }
+            "moving_averages": moving_averages,
+            "ma_crossovers": ma_crossovers,
+            "ma_trend": ma_trend,
+            "overall": {
+                "recommendation": overall_recommendation,
+                "confidence": round(confidence, 2),
+                "buy_signals": buy_signals,
+                "sell_signals": sell_signals,
+                "total_indicators": total_indicators,
+            },
         }
 
     def add_indicators_to_dataframe(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -418,13 +425,13 @@ class TechnicalAnalyzer:
         df = data.copy()
 
         # Add RSI
-        df['rsi'] = self.calculate_rsi(df)
+        df["rsi"] = self.calculate_rsi(df)
 
         # Add MACD
         macd_line, signal_line, histogram = self.calculate_macd(df)
-        df['macd'] = macd_line
-        df['macd_signal'] = signal_line
-        df['macd_histogram'] = histogram
+        df["macd"] = macd_line
+        df["macd_signal"] = signal_line
+        df["macd_histogram"] = histogram
 
         return df
 
@@ -434,20 +441,23 @@ if __name__ == "__main__":
     print("Testing Technical Analyzer...\n")
 
     # Create sample price data
-    dates = pd.date_range(start='2024-01-01', end='2024-12-20', freq='D')
+    dates = pd.date_range(start="2024-01-01", end="2024-12-20", freq="D")
     np.random.seed(42)
 
     # Simulate price data with trend
     prices = 40000 + np.cumsum(np.random.randn(len(dates)) * 1000)
     prices = np.maximum(prices, 10000)  # Keep prices positive
 
-    df = pd.DataFrame({
-        'close': prices,
-        'open': prices * (1 + np.random.randn(len(dates)) * 0.01),
-        'high': prices * (1 + np.abs(np.random.randn(len(dates))) * 0.02),
-        'low': prices * (1 - np.abs(np.random.randn(len(dates))) * 0.02),
-        'volume': np.random.randint(1000000, 10000000, len(dates))
-    }, index=dates)
+    df = pd.DataFrame(
+        {
+            "close": prices,
+            "open": prices * (1 + np.random.randn(len(dates)) * 0.01),
+            "high": prices * (1 + np.abs(np.random.randn(len(dates))) * 0.02),
+            "low": prices * (1 - np.abs(np.random.randn(len(dates))) * 0.02),
+            "volume": np.random.randint(1000000, 10000000, len(dates)),
+        },
+        index=dates,
+    )
 
     # Analyze
     analyzer = TechnicalAnalyzer()

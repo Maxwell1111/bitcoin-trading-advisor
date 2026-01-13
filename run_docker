@@ -2,7 +2,7 @@
 
 # Attempt to change directory to the directory containing the script
 script_dir=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
-cd "$script_dir" || { 
+cd "$script_dir" || {
     echo "Error: Failed to change to the script's directory. Please check the path."
     exit 1
 }

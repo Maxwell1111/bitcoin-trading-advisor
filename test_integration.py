@@ -10,13 +10,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.database import init_database, get_db_session
-from src.database.models import Recommendation, WeightHistory
-from src.services import (
-    get_weight_manager,
-    HistoryTracker,
-    ValidationService
-)
+from src.database import get_db_session, init_database
+from src.database.models import Recommendation
+from src.services import HistoryTracker, ValidationService, get_weight_manager
+
 
 def test_database():
     """Test database initialization"""
@@ -32,6 +29,7 @@ def test_database():
 
     return success
 
+
 def test_weight_manager():
     """Test WeightManager"""
     print("\nTesting WeightManager...")
@@ -39,14 +37,17 @@ def test_weight_manager():
     wm = get_weight_manager()
     weights = wm.get_current_weights()
 
-    print(f"  Current weights: tech={weights['technical_weight']:.2f}, "
-          f"reddit={weights['reddit_weight']:.2f}, news={weights['news_weight']:.2f}")
+    print(
+        f"  Current weights: tech={weights['technical_weight']:.2f}, "
+        f"reddit={weights['reddit_weight']:.2f}, news={weights['news_weight']:.2f}"
+    )
 
     total = sum(weights.values())
     assert abs(total - 1.0) < 0.01, f"Weights don't sum to 1.0: {total}"
-    print(f"  Weights sum to 1.0: ✓")
+    print("  Weights sum to 1.0: ✓")
 
     return True
+
 
 def test_history_tracker():
     """Test HistoryTracker"""
@@ -56,49 +57,45 @@ def test_history_tracker():
 
     # Create a mock recommendation
     mock_rec = {
-        'recommendation': 'buy',
-        'confidence': 0.72,
-        'signals': {
-            'technical': {
-                'recommendation': 'buy',
-                'confidence': 0.65,
-                'score': 0.39,
-                'weight': 0.6
+        "recommendation": "buy",
+        "confidence": 0.72,
+        "signals": {
+            "technical": {
+                "recommendation": "buy",
+                "confidence": 0.65,
+                "score": 0.39,
+                "weight": 0.6,
             },
-            'sentiment': {
-                'recommendation': 'buy',
-                'confidence': 0.72,
-                'score': 0.288,
-                'weight': 0.4
-            }
+            "sentiment": {
+                "recommendation": "buy",
+                "confidence": 0.72,
+                "score": 0.288,
+                "weight": 0.4,
+            },
         },
-        'targets': {
-            'entry': 60000,
-            'target_1': 63000,
-            'target_2': 66000,
-            'stop_loss': 58200
-        },
-        'reasoning': 'Test recommendation'
+        "targets": {"entry": 60000, "target_1": 63000, "target_2": 66000, "stop_loss": 58200},
+        "reasoning": "Test recommendation",
     }
 
     try:
         rec_id = ht.save_recommendation(
             rec_data=mock_rec,
             current_price=60000,
-            weights={'technical_weight': 0.6, 'reddit_weight': 0.25, 'news_weight': 0.15},
-            operating_mode='normal'
+            weights={"technical_weight": 0.6, "reddit_weight": 0.25, "news_weight": 0.15},
+            operating_mode="normal",
         )
         print(f"  Saved test recommendation: ID={rec_id} ✓")
 
         # Retrieve it
         retrieved = ht.get_recommendation(rec_id)
         assert retrieved is not None
-        print(f"  Retrieved recommendation: ✓")
+        print("  Retrieved recommendation: ✓")
 
         return True
     except Exception as e:
         print(f"  ERROR: {e}")
         return False
+
 
 def test_validation_service():
     """Test ValidationService"""
@@ -107,14 +104,11 @@ def test_validation_service():
     vs = ValidationService()
 
     # Test Kelly Criterion calculation
-    kelly = vs.calculate_kelly_fraction(
-        confidence=0.72,
-        win_payout_pct=0.05,
-        loss_payout_pct=0.03
-    )
+    kelly = vs.calculate_kelly_fraction(confidence=0.72, win_payout_pct=0.05, loss_payout_pct=0.03)
     print(f"  Kelly fraction (72% conf, 5% win, 3% loss): {kelly:.3f} ✓")
 
     return True
+
 
 def main():
     print("=" * 60)
@@ -146,6 +140,7 @@ def main():
     print("=" * 60)
 
     return 0 if all_passed else 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

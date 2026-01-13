@@ -12,10 +12,10 @@ Usage:
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Callable, Optional, Dict
+from typing import Callable, Optional
 
 from ..database import get_db_session
-from ..database.models import Recommendation, PriceSnapshot, ValidationResult
+from ..database.models import PriceSnapshot, Recommendation, ValidationResult
 from .validation_service import ValidationService
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class ValidationJob:
         validation_service: ValidationService,
         price_fetcher: Callable[[], float],
         interval_seconds: int = 300,  # 5 minutes
-        batch_size: int = 100
+        batch_size: int = 100,
     ):
         """
         Initialize ValidationJob
@@ -63,11 +63,7 @@ class ValidationJob:
             logger.error(f"Failed to fetch price for validation: {e}")
             return None
 
-    async def _validate_recommendation(
-        self,
-        rec: Recommendation,
-        current_price: float
-    ):
+    async def _validate_recommendation(self, rec: Recommendation, current_price: float):
         """
         Run all applicable validations for a recommendation
 
@@ -84,8 +80,7 @@ class ValidationJob:
 
         # Calculate position size
         position_size = self.validation_service.calculate_position_size(
-            rec,
-            current_accuracy=recent_accuracy
+            rec, current_accuracy=recent_accuracy
         )
 
         # Check which validations to run based on age
@@ -93,39 +88,47 @@ class ValidationJob:
 
         # Quick 4h validation
         if age_hours >= 4:
-            validations_to_run.append(('quick_4h', 4))
+            validations_to_run.append(("quick_4h", 4))
 
         # Standard 24h validation
         if age_hours >= 24:
-            validations_to_run.append(('standard_24h', 24))
+            validations_to_run.append(("standard_24h", 24))
 
         # Extended 7d validation
         if age_hours >= 168:  # 7 days
-            validations_to_run.append(('extended_7d', 168))
+            validations_to_run.append(("extended_7d", 168))
 
         # Run each validation
         for validation_type, expected_hours in validations_to_run:
             try:
                 # Check if already validated
                 with get_db_session() as session:
-                    existing = session.query(ValidationResult).filter(
-                        ValidationResult.recommendation_id == rec.id,
-                        ValidationResult.validation_type == validation_type
-                    ).first()
+                    existing = (
+                        session.query(ValidationResult)
+                        .filter(
+                            ValidationResult.recommendation_id == rec.id,
+                            ValidationResult.validation_type == validation_type,
+                        )
+                        .first()
+                    )
 
-                    if existing and existing.outcome != 'pending':
+                    if existing and existing.outcome != "pending":
                         # Already validated, skip
                         continue
 
                 # Get price snapshot at the appropriate time
-                target_time = rec.timestamp + timedelta(hours=expected_hours)
+                rec.timestamp + timedelta(hours=expected_hours)
 
                 with get_db_session() as session:
-                    snapshot = session.query(PriceSnapshot).filter(
-                        PriceSnapshot.recommendation_id == rec.id,
-                        PriceSnapshot.time_offset_hours >= expected_hours - 0.5,
-                        PriceSnapshot.time_offset_hours <= expected_hours + 0.5
-                    ).first()
+                    snapshot = (
+                        session.query(PriceSnapshot)
+                        .filter(
+                            PriceSnapshot.recommendation_id == rec.id,
+                            PriceSnapshot.time_offset_hours >= expected_hours - 0.5,
+                            PriceSnapshot.time_offset_hours <= expected_hours + 0.5,
+                        )
+                        .first()
+                    )
 
                     if snapshot:
                         price_at_time = snapshot.price
@@ -137,18 +140,18 @@ class ValidationJob:
                             snapshot_type=validation_type,
                             timestamp=now,
                             price=current_price,
-                            time_offset_hours=age_hours
+                            time_offset_hours=age_hours,
                         )
                         session.add(snapshot)
                         session.commit()
                         price_at_time = current_price
 
                 # Run validation based on type
-                if validation_type == 'quick_4h':
+                if validation_type == "quick_4h":
                     outcome, reason, price_change = self.validation_service.validate_quick_4h(
                         rec, price_at_time
                     )
-                elif validation_type == 'standard_24h':
+                elif validation_type == "standard_24h":
                     outcome, reason, price_change = self.validation_service.validate_standard_24h(
                         rec, price_at_time
                     )
@@ -165,7 +168,7 @@ class ValidationJob:
 
                 # Calculate Kelly fraction
                 if rec.target_1 and rec.stop_loss:
-                    if 'buy' in rec.recommendation.lower():
+                    if "buy" in rec.recommendation.lower():
                         win_payout = (rec.target_1 - rec.entry_price) / rec.entry_price
                         loss_payout = (rec.entry_price - rec.stop_loss) / rec.entry_price
                     else:
@@ -187,7 +190,7 @@ class ValidationJob:
                     price_change_pct=price_change,
                     position_size=position_size,
                     pnl_pct=pnl,
-                    kelly_fraction=kelly_fraction
+                    kelly_fraction=kelly_fraction,
                 )
 
                 self.total_validations_created += 1
@@ -204,7 +207,9 @@ class ValidationJob:
                 outcome, reason, pnl_pct = result
 
                 # Calculate position size for event-based
-                position_size = self.validation_service.calculate_position_size(rec, recent_accuracy)
+                position_size = self.validation_service.calculate_position_size(
+                    rec, recent_accuracy
+                )
 
                 # Calculate full P&L
                 pnl = self.validation_service.calculate_pnl_with_position_sizing(
@@ -214,13 +219,13 @@ class ValidationJob:
                 # Save event-based validation
                 self.validation_service.save_validation_result(
                     recommendation=rec,
-                    validation_type='event_based',
+                    validation_type="event_based",
                     outcome=outcome,
                     outcome_reason=reason,
                     price_change_pct=pnl_pct,
                     position_size=position_size,
                     pnl_pct=pnl,
-                    kelly_fraction=0.0  # Not applicable for event-based
+                    kelly_fraction=0.0,  # Not applicable for event-based
                 )
 
                 logger.info(f"Event-based validation for rec #{rec.id}: {outcome} ({reason})")
@@ -247,11 +252,13 @@ class ValidationJob:
             # Get recent recommendations (last 30 days)
             cutoff = datetime.utcnow() - timedelta(days=30)
 
-            pending_recs = session.query(Recommendation).filter(
-                Recommendation.timestamp >= cutoff
-            ).order_by(
-                Recommendation.timestamp.desc()
-            ).limit(self.batch_size).all()
+            pending_recs = (
+                session.query(Recommendation)
+                .filter(Recommendation.timestamp >= cutoff)
+                .order_by(Recommendation.timestamp.desc())
+                .limit(self.batch_size)
+                .all()
+            )
 
             logger.info(f"Found {len(pending_recs)} recommendations to check")
 
@@ -268,7 +275,9 @@ class ValidationJob:
 
         Runs validation cycle every `interval` seconds.
         """
-        logger.info(f"Validation job started (interval: {self.interval}s, batch size: {self.batch_size})")
+        logger.info(
+            f"Validation job started (interval: {self.interval}s, batch size: {self.batch_size})"
+        )
 
         while True:
             try:
@@ -285,7 +294,7 @@ class ValidationJob:
                 # Continue after error
                 await asyncio.sleep(self.interval)
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """
         Get validation job statistics
 
@@ -293,10 +302,10 @@ class ValidationJob:
             Dictionary with job stats
         """
         return {
-            'status': 'running' if self.last_run else 'not_started',
-            'last_run': self.last_run.isoformat() if self.last_run else None,
-            'total_validations_created': self.total_validations_created,
-            'errors_count': self.errors_count,
-            'batch_size': self.batch_size,
-            'interval_seconds': self.interval
+            "status": "running" if self.last_run else "not_started",
+            "last_run": self.last_run.isoformat() if self.last_run else None,
+            "total_validations_created": self.total_validations_created,
+            "errors_count": self.errors_count,
+            "batch_size": self.batch_size,
+            "interval_seconds": self.interval,
         }

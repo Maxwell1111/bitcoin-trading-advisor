@@ -12,16 +12,17 @@ Usage:
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 
 from ..database import get_db_session
-from ..database.models import Recommendation, PriceSnapshot
+from ..database.models import PriceSnapshot, Recommendation
 
 logger = logging.getLogger(__name__)
 
 
 class ValidationError(Exception):
     """Raised when recommendation data fails validation"""
+
     pass
 
 
@@ -37,7 +38,7 @@ class HistoryTracker:
         """Initialize HistoryTracker"""
         pass
 
-    def _validate_recommendation_data(self, rec_data: Dict[str, Any], current_price: float):
+    def _validate_recommendation_data(self, rec_data: dict[str, Any], current_price: float):
         """
         Validate recommendation data before saving
 
@@ -55,13 +56,13 @@ class HistoryTracker:
             ValidationError: If data is invalid
         """
         # Check required fields
-        required_fields = ['recommendation', 'confidence', 'signals']
+        required_fields = ["recommendation", "confidence", "signals"]
         for field in required_fields:
             if field not in rec_data:
                 raise ValidationError(f"Missing required field: {field}")
 
         # Validate confidence
-        confidence = rec_data['confidence']
+        confidence = rec_data["confidence"]
         if not (0 <= confidence <= 1):
             raise ValidationError(f"Confidence must be in [0, 1], got {confidence}")
 
@@ -70,7 +71,7 @@ class HistoryTracker:
             raise ValidationError(f"Price must be positive, got {current_price}")
 
         # Validate signals structure
-        if 'technical' not in rec_data['signals'] or 'sentiment' not in rec_data['signals']:
+        if "technical" not in rec_data["signals"] or "sentiment" not in rec_data["signals"]:
             raise ValidationError("Missing 'technical' or 'sentiment' in signals")
 
         # Note: We don't validate weights sum here because weights come from
@@ -79,11 +80,11 @@ class HistoryTracker:
 
     def save_recommendation(
         self,
-        rec_data: Dict[str, Any],
+        rec_data: dict[str, Any],
         current_price: float,
-        weights: Dict[str, float],
-        operating_mode: str = 'normal',
-        request_params: Optional[Dict] = None
+        weights: dict[str, float],
+        operating_mode: str = "normal",
+        request_params: Optional[dict] = None,
     ) -> int:
         """
         Save recommendation to database with initial price snapshot
@@ -106,54 +107,54 @@ class HistoryTracker:
             self._validate_recommendation_data(rec_data, current_price)
 
             # Extract signal details
-            signals = rec_data['signals']
-            technical = signals.get('technical', {})
-            sentiment = signals.get('sentiment', {})
+            signals = rec_data["signals"]
+            technical = signals.get("technical", {})
+            sentiment = signals.get("sentiment", {})
 
             # Determine which signals were actually used
             signal_sources = []
-            if technical.get('weight', 0) > 0:
-                signal_sources.append('technical')
-            if sentiment.get('weight', 0) > 0:
+            if technical.get("weight", 0) > 0:
+                signal_sources.append("technical")
+            if sentiment.get("weight", 0) > 0:
                 # Sentiment is combination of reddit + news
-                signal_sources.extend(['reddit', 'news'])
+                signal_sources.extend(["reddit", "news"])
 
             # Create recommendation record
             recommendation = Recommendation(
                 timestamp=datetime.utcnow(),
-                recommendation=rec_data['recommendation'],
-                confidence=rec_data['confidence'],
+                recommendation=rec_data["recommendation"],
+                confidence=rec_data["confidence"],
                 current_price=current_price,
-
                 # Weights
-                weight_technical=weights.get('technical_weight', 0.6),
-                weight_reddit=weights.get('reddit_weight', 0.25),
-                weight_news=weights.get('news_weight', 0.15),
-
+                weight_technical=weights.get("technical_weight", 0.6),
+                weight_reddit=weights.get("reddit_weight", 0.25),
+                weight_news=weights.get("news_weight", 0.15),
                 # Signal scores
-                technical_score=technical.get('score', 0.0),
-                reddit_score=sentiment.get('score', 0.0) * weights.get('reddit_weight', 0.25) / (weights.get('reddit_weight', 0.25) + weights.get('news_weight', 0.15)),  # Proportional split
-                news_score=sentiment.get('score', 0.0) * weights.get('news_weight', 0.15) / (weights.get('reddit_weight', 0.25) + weights.get('news_weight', 0.15)),
-
+                technical_score=technical.get("score", 0.0),
+                reddit_score=sentiment.get("score", 0.0)
+                * weights.get("reddit_weight", 0.25)
+                / (
+                    weights.get("reddit_weight", 0.25) + weights.get("news_weight", 0.15)
+                ),  # Proportional split
+                news_score=sentiment.get("score", 0.0)
+                * weights.get("news_weight", 0.15)
+                / (weights.get("reddit_weight", 0.25) + weights.get("news_weight", 0.15)),
                 # Individual recommendations
-                technical_recommendation=technical.get('recommendation'),
-                reddit_recommendation=sentiment.get('recommendation'),  # Using combined sentiment
-                news_recommendation=sentiment.get('recommendation'),
-
+                technical_recommendation=technical.get("recommendation"),
+                reddit_recommendation=sentiment.get("recommendation"),  # Using combined sentiment
+                news_recommendation=sentiment.get("recommendation"),
                 # Targets
-                entry_price=rec_data.get('targets', {}).get('entry', current_price),
-                target_1=rec_data.get('targets', {}).get('target_1'),
-                target_2=rec_data.get('targets', {}).get('target_2'),
-                stop_loss=rec_data.get('targets', {}).get('stop_loss'),
-
+                entry_price=rec_data.get("targets", {}).get("entry", current_price),
+                target_1=rec_data.get("targets", {}).get("target_1"),
+                target_2=rec_data.get("targets", {}).get("target_2"),
+                stop_loss=rec_data.get("targets", {}).get("stop_loss"),
                 # Metadata
                 operating_mode=operating_mode,
                 signal_sources=json.dumps(signal_sources),
                 request_params=json.dumps(request_params) if request_params else None,
-
                 # Full details
-                full_signals=rec_data['signals'],
-                reasoning=rec_data.get('reasoning', '')
+                full_signals=rec_data["signals"],
+                reasoning=rec_data.get("reasoning", ""),
             )
 
             # Save to database
@@ -164,10 +165,10 @@ class HistoryTracker:
                 # Create initial price snapshot
                 initial_snapshot = PriceSnapshot(
                     recommendation_id=recommendation.id,
-                    snapshot_type='initial',
+                    snapshot_type="initial",
                     timestamp=datetime.utcnow(),
                     price=current_price,
-                    time_offset_hours=0.0
+                    time_offset_hours=0.0,
                 )
                 session.add(initial_snapshot)
 
@@ -187,7 +188,7 @@ class HistoryTracker:
             logger.error(f"Failed to save recommendation: {e}", exc_info=True)
             raise
 
-    def get_recommendation(self, rec_id: int) -> Optional[Dict]:
+    def get_recommendation(self, rec_id: int) -> Optional[dict]:
         """
         Retrieve a recommendation by ID
 
@@ -199,33 +200,31 @@ class HistoryTracker:
         """
         try:
             with get_db_session() as session:
-                rec = session.query(Recommendation).filter(
-                    Recommendation.id == rec_id
-                ).first()
+                rec = session.query(Recommendation).filter(Recommendation.id == rec_id).first()
 
                 if not rec:
                     return None
 
                 return {
-                    'id': rec.id,
-                    'timestamp': rec.timestamp.isoformat(),
-                    'recommendation': rec.recommendation,
-                    'confidence': rec.confidence,
-                    'current_price': rec.current_price,
-                    'weights': {
-                        'technical': rec.weight_technical,
-                        'reddit': rec.weight_reddit,
-                        'news': rec.weight_news
+                    "id": rec.id,
+                    "timestamp": rec.timestamp.isoformat(),
+                    "recommendation": rec.recommendation,
+                    "confidence": rec.confidence,
+                    "current_price": rec.current_price,
+                    "weights": {
+                        "technical": rec.weight_technical,
+                        "reddit": rec.weight_reddit,
+                        "news": rec.weight_news,
                     },
-                    'targets': {
-                        'entry': rec.entry_price,
-                        'target_1': rec.target_1,
-                        'target_2': rec.target_2,
-                        'stop_loss': rec.stop_loss
+                    "targets": {
+                        "entry": rec.entry_price,
+                        "target_1": rec.target_1,
+                        "target_2": rec.target_2,
+                        "stop_loss": rec.stop_loss,
                     },
-                    'operating_mode': rec.operating_mode,
-                    'reasoning': rec.reasoning,
-                    'full_signals': rec.full_signals
+                    "operating_mode": rec.operating_mode,
+                    "reasoning": rec.reasoning,
+                    "full_signals": rec.full_signals,
                 }
 
         except Exception as e:
@@ -244,18 +243,21 @@ class HistoryTracker:
         """
         try:
             with get_db_session() as session:
-                recs = session.query(Recommendation).order_by(
-                    Recommendation.timestamp.desc()
-                ).limit(limit).all()
+                recs = (
+                    session.query(Recommendation)
+                    .order_by(Recommendation.timestamp.desc())
+                    .limit(limit)
+                    .all()
+                )
 
                 return [
                     {
-                        'id': r.id,
-                        'timestamp': r.timestamp.isoformat(),
-                        'recommendation': r.recommendation,
-                        'confidence': r.confidence,
-                        'price': r.current_price,
-                        'mode': r.operating_mode
+                        "id": r.id,
+                        "timestamp": r.timestamp.isoformat(),
+                        "recommendation": r.recommendation,
+                        "confidence": r.confidence,
+                        "price": r.current_price,
+                        "mode": r.operating_mode,
                     }
                     for r in recs
                 ]
@@ -264,7 +266,7 @@ class HistoryTracker:
             logger.error(f"Failed to get recent recommendations: {e}")
             return []
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """
         Get history statistics for monitoring
 
@@ -276,35 +278,41 @@ class HistoryTracker:
                 total = session.query(Recommendation).count()
 
                 # Count by recommendation type
-                buy_count = session.query(Recommendation).filter(
-                    Recommendation.recommendation.like('%buy%')
-                ).count()
-                sell_count = session.query(Recommendation).filter(
-                    Recommendation.recommendation.like('%sell%')
-                ).count()
-                hold_count = session.query(Recommendation).filter(
-                    Recommendation.recommendation == 'hold'
-                ).count()
+                buy_count = (
+                    session.query(Recommendation)
+                    .filter(Recommendation.recommendation.like("%buy%"))
+                    .count()
+                )
+                sell_count = (
+                    session.query(Recommendation)
+                    .filter(Recommendation.recommendation.like("%sell%"))
+                    .count()
+                )
+                hold_count = (
+                    session.query(Recommendation)
+                    .filter(Recommendation.recommendation == "hold")
+                    .count()
+                )
 
                 # Latest recommendation
-                latest = session.query(Recommendation).order_by(
-                    Recommendation.timestamp.desc()
-                ).first()
+                latest = (
+                    session.query(Recommendation).order_by(Recommendation.timestamp.desc()).first()
+                )
 
                 return {
-                    'total_recommendations': total,
-                    'by_type': {
-                        'buy': buy_count,
-                        'sell': sell_count,
-                        'hold': hold_count
-                    },
-                    'latest_recommendation': {
-                        'id': latest.id,
-                        'type': latest.recommendation,
-                        'timestamp': latest.timestamp.isoformat()
-                    } if latest else None
+                    "total_recommendations": total,
+                    "by_type": {"buy": buy_count, "sell": sell_count, "hold": hold_count},
+                    "latest_recommendation": (
+                        {
+                            "id": latest.id,
+                            "type": latest.recommendation,
+                            "timestamp": latest.timestamp.isoformat(),
+                        }
+                        if latest
+                        else None
+                    ),
                 }
 
         except Exception as e:
             logger.error(f"Failed to get history stats: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}

@@ -2,10 +2,10 @@
 Configuration management utilities
 """
 
-import yaml
-import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
+
+import yaml
 
 
 class Config:
@@ -21,7 +21,7 @@ class Config:
         self.config_path = Path(config_path)
         self.config = self._load_config()
 
-    def _load_config(self) -> Dict[str, Any]:
+    def _load_config(self) -> dict[str, Any]:
         """Load configuration from YAML file"""
         if not self.config_path.exists():
             # Try to load example config
@@ -29,12 +29,12 @@ class Config:
             if example_path.exists():
                 print(f"Warning: {self.config_path} not found. Using example config.")
                 print("Please copy config.example.yaml to config.yaml and add your API keys.")
-                with open(example_path, 'r') as f:
+                with open(example_path) as f:
                     return yaml.safe_load(f)
             else:
                 raise FileNotFoundError(f"Configuration file not found: {self.config_path}")
 
-        with open(self.config_path, 'r') as f:
+        with open(self.config_path) as f:
             return yaml.safe_load(f)
 
     def get(self, key_path: str, default: Any = None) -> Any:
@@ -52,7 +52,7 @@ class Config:
             >>> config = Config()
             >>> api_key = config.get('api_keys.newsapi')
         """
-        keys = key_path.split('.')
+        keys = key_path.split(".")
         value = self.config
 
         for key in keys:
@@ -73,8 +73,8 @@ class Config:
         Returns:
             API key
         """
-        key = self.get(f'api_keys.{service}')
-        if not key or key.startswith('YOUR_'):
+        key = self.get(f"api_keys.{service}")
+        if not key or key.startswith("YOUR_"):
             raise ValueError(
                 f"Please set your {service} API key in config.yaml. "
                 f"Copy config.example.yaml to config.yaml and add your keys."

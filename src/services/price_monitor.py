@@ -11,9 +11,10 @@ Usage:
 
 import asyncio
 import logging
-from datetime import datetime
 from collections import deque
-from typing import Optional, Dict, Callable
+from datetime import datetime
+from typing import Callable, Optional
+
 import requests
 
 from ..utils.cache import get_cache
@@ -33,7 +34,7 @@ class PriceMonitor:
         self,
         volatility_threshold: float = 0.03,
         poll_interval: int = 30,
-        webhook_callback: Optional[Callable] = None
+        webhook_callback: Optional[Callable] = None,
     ):
         """
         Initialize PriceMonitor
@@ -69,25 +70,20 @@ class PriceMonitor:
         try:
             # Use CoinGecko simple price endpoint (no API key needed)
             url = "https://api.coingecko.com/api/v3/simple/price"
-            params = {
-                'ids': 'bitcoin',
-                'vs_currencies': 'usd'
-            }
+            params = {"ids": "bitcoin", "vs_currencies": "usd"}
 
             # Make synchronous request (run in executor to avoid blocking)
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
-                None,
-                lambda: requests.get(url, params=params, timeout=5)
+                None, lambda: requests.get(url, params=params, timeout=5)
             )
 
             if response.status_code == 200:
                 data = response.json()
-                price = data.get('bitcoin', {}).get('usd')
+                price = data.get("bitcoin", {}).get("usd")
                 return float(price) if price else None
-            else:
-                logger.warning(f"CoinGecko returned status {response.status_code}")
-                return None
+            logger.warning(f"CoinGecko returned status {response.status_code}")
+            return None
 
         except requests.exceptions.Timeout:
             logger.warning("Price fetch timed out")
@@ -106,8 +102,8 @@ class PriceMonitor:
         if len(self.price_history) < 2:
             return False
 
-        oldest_price = self.price_history[0]['price']
-        newest_price = self.price_history[-1]['price']
+        oldest_price = self.price_history[0]["price"]
+        newest_price = self.price_history[-1]["price"]
 
         pct_change = abs((newest_price - oldest_price) / oldest_price)
 
@@ -118,19 +114,18 @@ class PriceMonitor:
         if len(self.price_history) < 2:
             return 0.0
 
-        oldest = self.price_history[0]['price']
-        newest = self.price_history[-1]['price']
+        oldest = self.price_history[0]["price"]
+        newest = self.price_history[-1]["price"]
 
         return (newest - oldest) / oldest
 
     async def _handle_volatility(self):
         """Handle detected volatility event"""
         change_pct = self._get_price_change_pct()
-        current_price = self.price_history[-1]['price']
+        current_price = self.price_history[-1]["price"]
 
         logger.warning(
-            f"Volatility spike detected: {change_pct:+.2%} "
-            f"(current price: ${current_price:,.2f})"
+            f"Volatility spike detected: {change_pct:+.2%} (current price: ${current_price:,.2f})"
         )
 
         # Clear cache
@@ -140,25 +135,24 @@ class PriceMonitor:
         # Call webhook if configured
         if self.webhook_callback:
             try:
-                await self.webhook_callback({
-                    'event_type': 'volatility_event',
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'details': {
-                        'price_change_pct': round(change_pct, 4),
-                        'current_price': current_price,
-                        'threshold': self.volatility_threshold
+                await self.webhook_callback(
+                    {
+                        "event_type": "volatility_event",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "details": {
+                            "price_change_pct": round(change_pct, 4),
+                            "current_price": current_price,
+                            "threshold": self.volatility_threshold,
+                        },
                     }
-                })
+                )
             except Exception as e:
                 logger.error(f"Webhook callback failed: {e}")
 
     async def _exponential_backoff(self):
         """Apply exponential backoff after failures"""
         self.consecutive_failures += 1
-        self.retry_delay = min(
-            self.retry_delay * 2,
-            self.max_retry_delay
-        )
+        self.retry_delay = min(self.retry_delay * 2, self.max_retry_delay)
 
         logger.info(f"Backing off: {self.retry_delay}s (failures: {self.consecutive_failures})")
         await asyncio.sleep(self.retry_delay)
@@ -187,10 +181,7 @@ class PriceMonitor:
                     self.last_successful_poll = datetime.utcnow()
 
                     # Add to history
-                    self.price_history.append({
-                        'price': price,
-                        'timestamp': datetime.utcnow()
-                    })
+                    self.price_history.append({"price": price, "timestamp": datetime.utcnow()})
 
                     logger.debug(f"Price fetched: ${price:,.2f}")
 
@@ -229,10 +220,10 @@ class PriceMonitor:
             Latest price, or None if no history
         """
         if self.price_history:
-            return self.price_history[-1]['price']
+            return self.price_history[-1]["price"]
         return None
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """
         Get monitor statistics for observability
 
@@ -240,11 +231,13 @@ class PriceMonitor:
             Dictionary with monitor stats
         """
         return {
-            'status': 'healthy' if self.consecutive_failures == 0 else 'degraded',
-            'last_successful_poll': self.last_successful_poll.isoformat() if self.last_successful_poll else None,
-            'consecutive_failures': self.consecutive_failures,
-            'retry_delay_seconds': self.retry_delay,
-            'current_price': self.get_current_price(),
-            'price_history_length': len(self.price_history),
-            'volatility_threshold': self.volatility_threshold
+            "status": "healthy" if self.consecutive_failures == 0 else "degraded",
+            "last_successful_poll": (
+                self.last_successful_poll.isoformat() if self.last_successful_poll else None
+            ),
+            "consecutive_failures": self.consecutive_failures,
+            "retry_delay_seconds": self.retry_delay,
+            "current_price": self.get_current_price(),
+            "price_history_length": len(self.price_history),
+            "volatility_threshold": self.volatility_threshold,
         }

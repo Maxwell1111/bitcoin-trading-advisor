@@ -11,12 +11,12 @@ Handles:
 """
 
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, Optional, List, Tuple
 import statistics
+from datetime import datetime, timedelta
+from typing import Optional
 
 from ..database import get_db_session
-from ..database.models import Recommendation, PriceSnapshot, ValidationResult
+from ..database.models import Recommendation, ValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class ValidationService:
         self,
         max_position_pct: float = 0.25,
         min_confidence: float = 0.60,
-        risk_free_rate: float = 0.045
+        risk_free_rate: float = 0.045,
     ):
         """
         Initialize ValidationService
@@ -48,10 +48,7 @@ class ValidationService:
         self.risk_free_rate = risk_free_rate
 
     def calculate_kelly_fraction(
-        self,
-        confidence: float,
-        win_payout_pct: float,
-        loss_payout_pct: float
+        self, confidence: float, win_payout_pct: float, loss_payout_pct: float
     ) -> float:
         """
         Calculate Kelly Criterion position size
@@ -83,9 +80,7 @@ class ValidationService:
         return kelly
 
     def calculate_position_size(
-        self,
-        recommendation: Recommendation,
-        current_accuracy: Optional[float] = None
+        self, recommendation: Recommendation, current_accuracy: Optional[float] = None
     ) -> float:
         """
         Calculate position size with all constraints applied
@@ -99,28 +94,44 @@ class ValidationService:
         """
         # Check minimum confidence threshold
         if recommendation.confidence < self.min_confidence:
-            logger.debug(f"Confidence {recommendation.confidence:.2f} below minimum {self.min_confidence}")
+            logger.debug(
+                f"Confidence {recommendation.confidence:.2f} below minimum {self.min_confidence}"
+            )
             return 0.0
 
         # Calculate Kelly fraction
-        if recommendation.recommendation.lower() in ['buy', 'strong_buy']:
+        if recommendation.recommendation.lower() in ["buy", "strong_buy"]:
             # For buy: win = reach target, loss = hit stop
-            win_payout = (recommendation.target_1 - recommendation.entry_price) / recommendation.entry_price if recommendation.target_1 else 0.05
-            loss_payout = (recommendation.entry_price - recommendation.stop_loss) / recommendation.entry_price if recommendation.stop_loss else 0.03
+            win_payout = (
+                (recommendation.target_1 - recommendation.entry_price) / recommendation.entry_price
+                if recommendation.target_1
+                else 0.05
+            )
+            loss_payout = (
+                (recommendation.entry_price - recommendation.stop_loss) / recommendation.entry_price
+                if recommendation.stop_loss
+                else 0.03
+            )
 
-        elif recommendation.recommendation.lower() in ['sell', 'strong_sell']:
+        elif recommendation.recommendation.lower() in ["sell", "strong_sell"]:
             # For sell: win = price drops to target, loss = hits stop
-            win_payout = (recommendation.entry_price - recommendation.target_1) / recommendation.entry_price if recommendation.target_1 else 0.05
-            loss_payout = (recommendation.stop_loss - recommendation.entry_price) / recommendation.entry_price if recommendation.stop_loss else 0.03
+            win_payout = (
+                (recommendation.entry_price - recommendation.target_1) / recommendation.entry_price
+                if recommendation.target_1
+                else 0.05
+            )
+            loss_payout = (
+                (recommendation.stop_loss - recommendation.entry_price) / recommendation.entry_price
+                if recommendation.stop_loss
+                else 0.03
+            )
 
         else:  # hold
             # Don't size positions for hold
             return 0.0
 
         kelly_fraction = self.calculate_kelly_fraction(
-            recommendation.confidence,
-            win_payout,
-            loss_payout
+            recommendation.confidence, win_payout, loss_payout
         )
 
         # Apply maximum position cap
@@ -131,15 +142,15 @@ class ValidationService:
             # Reduce position if recent accuracy is poor
             reduction_factor = current_accuracy / 0.55  # Scales from 0 to 1
             position *= reduction_factor
-            logger.debug(f"Applied dynamic cap: accuracy={current_accuracy:.2f}, factor={reduction_factor:.2f}")
+            logger.debug(
+                f"Applied dynamic cap: accuracy={current_accuracy:.2f}, factor={reduction_factor:.2f}"
+            )
 
         return position
 
     def validate_quick_4h(
-        self,
-        recommendation: Recommendation,
-        price_4h: float
-    ) -> Tuple[str, str, float]:
+        self, recommendation: Recommendation, price_4h: float
+    ) -> tuple[str, str, float]:
         """
         Validate 4-hour quick check
 
@@ -155,32 +166,27 @@ class ValidationService:
 
         rec_type = recommendation.recommendation.lower()
 
-        if 'buy' in rec_type:
+        if "buy" in rec_type:
             # Success if price moved up >0.5%
             if pct_change >= 0.005:
-                return 'success', 'directional_up', pct_change
-            else:
-                return 'failure', 'insufficient_movement', pct_change
+                return "success", "directional_up", pct_change
+            return "failure", "insufficient_movement", pct_change
 
-        elif 'sell' in rec_type:
+        if "sell" in rec_type:
             # Success if price moved down >0.5%
             if pct_change <= -0.005:
-                return 'success', 'directional_down', abs(pct_change)
-            else:
-                return 'failure', 'insufficient_movement', pct_change
+                return "success", "directional_down", abs(pct_change)
+            return "failure", "insufficient_movement", pct_change
 
-        else:  # hold
-            # Success if price stayed within ±5%
-            if abs(pct_change) <= 0.05:
-                return 'success', 'stayed_in_band', 0.0
-            else:
-                return 'failure', 'broke_out_of_band', abs(pct_change)
+        # hold
+        # Success if price stayed within ±5%
+        if abs(pct_change) <= 0.05:
+            return "success", "stayed_in_band", 0.0
+        return "failure", "broke_out_of_band", abs(pct_change)
 
     def validate_standard_24h(
-        self,
-        recommendation: Recommendation,
-        price_24h: float
-    ) -> Tuple[str, str, float]:
+        self, recommendation: Recommendation, price_24h: float
+    ) -> tuple[str, str, float]:
         """
         Validate 24-hour standard check
 
@@ -196,36 +202,31 @@ class ValidationService:
 
         rec_type = recommendation.recommendation.lower()
 
-        if 'buy' in rec_type:
+        if "buy" in rec_type:
             # Success if price moved up >1% OR hit target
             if pct_change >= 0.01:
-                return 'success', 'directional', pct_change
-            elif recommendation.target_1 and price_24h >= recommendation.target_1:
-                return 'success', 'target_reached', pct_change
-            else:
-                return 'failure', 'insufficient_gain', pct_change
+                return "success", "directional", pct_change
+            if recommendation.target_1 and price_24h >= recommendation.target_1:
+                return "success", "target_reached", pct_change
+            return "failure", "insufficient_gain", pct_change
 
-        elif 'sell' in rec_type:
+        if "sell" in rec_type:
             # Success if price moved down >1% OR hit target
             if pct_change <= -0.01:
-                return 'success', 'directional', abs(pct_change)
-            elif recommendation.target_1 and price_24h <= recommendation.target_1:
-                return 'success', 'target_reached', abs(pct_change)
-            else:
-                return 'failure', 'insufficient_drop', pct_change
+                return "success", "directional", abs(pct_change)
+            if recommendation.target_1 and price_24h <= recommendation.target_1:
+                return "success", "target_reached", abs(pct_change)
+            return "failure", "insufficient_drop", pct_change
 
-        else:  # hold
-            # Success if stayed within ±5%
-            if abs(pct_change) <= 0.05:
-                return 'success', 'stayed_in_band', 0.0
-            else:
-                return 'failure', 'broke_out', abs(pct_change)
+        # hold
+        # Success if stayed within ±5%
+        if abs(pct_change) <= 0.05:
+            return "success", "stayed_in_band", 0.0
+        return "failure", "broke_out", abs(pct_change)
 
     def validate_event_based(
-        self,
-        recommendation: Recommendation,
-        current_price: float
-    ) -> Optional[Tuple[str, str, float]]:
+        self, recommendation: Recommendation, current_price: float
+    ) -> Optional[tuple[str, str, float]]:
         """
         Check if target or stop-loss has been hit
 
@@ -239,29 +240,26 @@ class ValidationService:
         entry = recommendation.entry_price
         rec_type = recommendation.recommendation.lower()
 
-        if 'buy' in rec_type:
+        if "buy" in rec_type:
             if recommendation.target_1 and current_price >= recommendation.target_1:
                 pnl = (recommendation.target_1 - entry) / entry
-                return 'success', 'target_reached', pnl
-            elif recommendation.stop_loss and current_price <= recommendation.stop_loss:
+                return "success", "target_reached", pnl
+            if recommendation.stop_loss and current_price <= recommendation.stop_loss:
                 pnl = (recommendation.stop_loss - entry) / entry
-                return 'failure', 'stop_loss_hit', pnl
+                return "failure", "stop_loss_hit", pnl
 
-        elif 'sell' in rec_type:
+        elif "sell" in rec_type:
             if recommendation.target_1 and current_price <= recommendation.target_1:
                 pnl = (entry - recommendation.target_1) / entry
-                return 'success', 'target_reached', pnl
-            elif recommendation.stop_loss and current_price >= recommendation.stop_loss:
+                return "success", "target_reached", pnl
+            if recommendation.stop_loss and current_price >= recommendation.stop_loss:
                 pnl = (entry - recommendation.stop_loss) / entry
-                return 'failure', 'stop_loss_hit', pnl
+                return "failure", "stop_loss_hit", pnl
 
         return None  # No event triggered
 
     def calculate_pnl_with_position_sizing(
-        self,
-        recommendation: Recommendation,
-        exit_price: float,
-        position_size: float
+        self, recommendation: Recommendation, exit_price: float, position_size: float
     ) -> float:
         """
         Calculate P&L considering position sizing
@@ -279,10 +277,10 @@ class ValidationService:
 
         rec_type = recommendation.recommendation.lower()
 
-        if 'buy' in rec_type:
+        if "buy" in rec_type:
             # Long position: profit when price goes up
             pnl = position_size * price_change_pct
-        elif 'sell' in rec_type:
+        elif "sell" in rec_type:
             # Short position: profit when price goes down
             pnl = position_size * (-price_change_pct)
         else:  # hold
@@ -299,7 +297,7 @@ class ValidationService:
         price_change_pct: float,
         position_size: float,
         pnl_pct: float,
-        kelly_fraction: float
+        kelly_fraction: float,
     ) -> int:
         """
         Save validation result to database
@@ -320,10 +318,14 @@ class ValidationService:
         try:
             with get_db_session() as session:
                 # Check if validation already exists
-                existing = session.query(ValidationResult).filter(
-                    ValidationResult.recommendation_id == recommendation.id,
-                    ValidationResult.validation_type == validation_type
-                ).first()
+                existing = (
+                    session.query(ValidationResult)
+                    .filter(
+                        ValidationResult.recommendation_id == recommendation.id,
+                        ValidationResult.validation_type == validation_type,
+                    )
+                    .first()
+                )
 
                 if existing:
                     # Update existing
@@ -334,43 +336,42 @@ class ValidationService:
                     existing.position_size_pct = position_size
                     existing.pnl_pct = pnl_pct
                     existing.kelly_fraction = kelly_fraction
-                    existing.target_reached = (outcome == 'success' and 'target' in outcome_reason)
+                    existing.target_reached = outcome == "success" and "target" in outcome_reason
 
                     session.commit()
-                    logger.debug(f"Updated validation for rec #{recommendation.id}, type={validation_type}")
+                    logger.debug(
+                        f"Updated validation for rec #{recommendation.id}, type={validation_type}"
+                    )
                     return existing.id
 
-                else:
-                    # Create new validation
-                    validation = ValidationResult(
-                        recommendation_id=recommendation.id,
-                        validation_type=validation_type,
-                        validated_at=datetime.utcnow(),
-                        outcome=outcome,
-                        outcome_reason=outcome_reason,
-                        price_change_pct=price_change_pct,
-                        position_size_pct=position_size,
-                        pnl_pct=pnl_pct,
-                        kelly_fraction=kelly_fraction,
-                        target_reached=(outcome == 'success' and 'target' in outcome_reason),
-                        time_to_outcome_hours=None  # Set by caller if known
-                    )
+                # Create new validation
+                validation = ValidationResult(
+                    recommendation_id=recommendation.id,
+                    validation_type=validation_type,
+                    validated_at=datetime.utcnow(),
+                    outcome=outcome,
+                    outcome_reason=outcome_reason,
+                    price_change_pct=price_change_pct,
+                    position_size_pct=position_size,
+                    pnl_pct=pnl_pct,
+                    kelly_fraction=kelly_fraction,
+                    target_reached=(outcome == "success" and "target" in outcome_reason),
+                    time_to_outcome_hours=None,  # Set by caller if known
+                )
 
-                    session.add(validation)
-                    session.commit()
+                session.add(validation)
+                session.commit()
 
-                    logger.info(f"Created validation for rec #{recommendation.id}: {validation_type} = {outcome}")
-                    return validation.id
+                logger.info(
+                    f"Created validation for rec #{recommendation.id}: {validation_type} = {outcome}"
+                )
+                return validation.id
 
         except Exception as e:
             logger.error(f"Failed to save validation result: {e}", exc_info=True)
             raise
 
-    def calculate_sharpe_ratio(
-        self,
-        signal_type: str,
-        lookback_days: int = 30
-    ) -> Optional[float]:
+    def calculate_sharpe_ratio(self, signal_type: str, lookback_days: int = 30) -> Optional[float]:
         """
         Calculate Sharpe ratio for a signal type
 
@@ -386,17 +387,19 @@ class ValidationService:
 
             with get_db_session() as session:
                 # Get validated recommendations
-                query = session.query(ValidationResult).join(
-                    Recommendation
-                ).filter(
-                    Recommendation.timestamp >= cutoff_date,
-                    ValidationResult.validation_type == 'standard_24h',
-                    ValidationResult.outcome.in_(['success', 'failure']),
-                    ValidationResult.pnl_pct.isnot(None)
+                query = (
+                    session.query(ValidationResult)
+                    .join(Recommendation)
+                    .filter(
+                        Recommendation.timestamp >= cutoff_date,
+                        ValidationResult.validation_type == "standard_24h",
+                        ValidationResult.outcome.in_(["success", "failure"]),
+                        ValidationResult.pnl_pct.isnot(None),
+                    )
                 )
 
                 # Filter by signal type if needed
-                if signal_type != 'combined':
+                if signal_type != "combined":
                     # This would require tracking which signal was dominant
                     # For now, use all recommendations
                     pass
@@ -404,7 +407,9 @@ class ValidationService:
                 validations = query.all()
 
                 if len(validations) < 10:
-                    logger.warning(f"Insufficient data for Sharpe calculation: {len(validations)} validations")
+                    logger.warning(
+                        f"Insufficient data for Sharpe calculation: {len(validations)} validations"
+                    )
                     return None
 
                 # Extract P&L percentages
@@ -436,7 +441,7 @@ class ValidationService:
             logger.error(f"Failed to calculate Sharpe ratio: {e}", exc_info=True)
             return None
 
-    def get_recent_accuracy(self, horizon: str = 'standard_24h', days: int = 7) -> float:
+    def get_recent_accuracy(self, horizon: str = "standard_24h", days: int = 7) -> float:
         """
         Get recent accuracy rate for dynamic position sizing
 
@@ -451,24 +456,30 @@ class ValidationService:
             cutoff_date = datetime.utcnow() - timedelta(days=days)
 
             with get_db_session() as session:
-                total = session.query(ValidationResult).join(
-                    Recommendation
-                ).filter(
-                    Recommendation.timestamp >= cutoff_date,
-                    ValidationResult.validation_type == horizon,
-                    ValidationResult.outcome.in_(['success', 'failure'])
-                ).count()
+                total = (
+                    session.query(ValidationResult)
+                    .join(Recommendation)
+                    .filter(
+                        Recommendation.timestamp >= cutoff_date,
+                        ValidationResult.validation_type == horizon,
+                        ValidationResult.outcome.in_(["success", "failure"]),
+                    )
+                    .count()
+                )
 
                 if total == 0:
                     return 0.65  # Default to reasonable accuracy
 
-                successes = session.query(ValidationResult).join(
-                    Recommendation
-                ).filter(
-                    Recommendation.timestamp >= cutoff_date,
-                    ValidationResult.validation_type == horizon,
-                    ValidationResult.outcome == 'success'
-                ).count()
+                successes = (
+                    session.query(ValidationResult)
+                    .join(Recommendation)
+                    .filter(
+                        Recommendation.timestamp >= cutoff_date,
+                        ValidationResult.validation_type == horizon,
+                        ValidationResult.outcome == "success",
+                    )
+                    .count()
+                )
 
                 accuracy = successes / total
                 return accuracy
@@ -477,7 +488,7 @@ class ValidationService:
             logger.error(f"Failed to get recent accuracy: {e}")
             return 0.65  # Default
 
-    def get_validation_stats(self) -> Dict:
+    def get_validation_stats(self) -> dict:
         """
         Get validation statistics for monitoring
 
@@ -489,30 +500,33 @@ class ValidationService:
                 total = session.query(ValidationResult).count()
 
                 # By outcome
-                successes = session.query(ValidationResult).filter(
-                    ValidationResult.outcome == 'success'
-                ).count()
+                successes = (
+                    session.query(ValidationResult)
+                    .filter(ValidationResult.outcome == "success")
+                    .count()
+                )
 
                 # By type
-                quick_count = session.query(ValidationResult).filter(
-                    ValidationResult.validation_type == 'quick_4h'
-                ).count()
-                standard_count = session.query(ValidationResult).filter(
-                    ValidationResult.validation_type == 'standard_24h'
-                ).count()
+                quick_count = (
+                    session.query(ValidationResult)
+                    .filter(ValidationResult.validation_type == "quick_4h")
+                    .count()
+                )
+                standard_count = (
+                    session.query(ValidationResult)
+                    .filter(ValidationResult.validation_type == "standard_24h")
+                    .count()
+                )
 
                 accuracy = successes / total if total > 0 else 0.0
 
                 return {
-                    'total_validations': total,
-                    'successes': successes,
-                    'overall_accuracy': round(accuracy, 3),
-                    'by_type': {
-                        'quick_4h': quick_count,
-                        'standard_24h': standard_count
-                    }
+                    "total_validations": total,
+                    "successes": successes,
+                    "overall_accuracy": round(accuracy, 3),
+                    "by_type": {"quick_4h": quick_count, "standard_24h": standard_count},
                 }
 
         except Exception as e:
             logger.error(f"Failed to get validation stats: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}

@@ -10,4 +10,3 @@ if [ -d "venv" ]; then
 fi
 
 python3 prod.py
-

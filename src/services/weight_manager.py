@@ -16,9 +16,9 @@ Usage:
 
 import asyncio
 import logging
-from datetime import datetime
-from typing import Dict, Optional
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
 
 from ..database import get_db_session
 from ..database.models import WeightHistory
@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class WeightConfig:
     """Current weight configuration"""
+
     technical: float
     reddit: float
     news: float
@@ -63,7 +64,7 @@ class WeightManager:
             reddit=0.25,
             news=0.15,
             last_updated=datetime.utcnow(),
-            trigger_reason='fallback_defaults'
+            trigger_reason="fallback_defaults",
         )
 
         # Load initial weights
@@ -78,9 +79,9 @@ class WeightManager:
         """
         try:
             with get_db_session() as session:
-                latest_weight = session.query(WeightHistory).order_by(
-                    WeightHistory.timestamp.desc()
-                ).first()
+                latest_weight = (
+                    session.query(WeightHistory).order_by(WeightHistory.timestamp.desc()).first()
+                )
 
                 if latest_weight:
                     self._current_weights = WeightConfig(
@@ -88,10 +89,10 @@ class WeightManager:
                         reddit=latest_weight.weight_reddit,
                         news=latest_weight.weight_news,
                         last_updated=latest_weight.timestamp,
-                        trigger_reason=latest_weight.trigger_reason or 'unknown',
+                        trigger_reason=latest_weight.trigger_reason or "unknown",
                         sharpe_technical=latest_weight.sharpe_technical,
                         sharpe_reddit=latest_weight.sharpe_reddit,
-                        sharpe_news=latest_weight.sharpe_news
+                        sharpe_news=latest_weight.sharpe_news,
                     )
                     logger.info(
                         f"Loaded weights from DB: tech={self._current_weights.technical:.2%}, "
@@ -100,10 +101,9 @@ class WeightManager:
                         f"(updated: {self._current_weights.last_updated})"
                     )
                     return True
-                else:
-                    logger.warning("No weights found in database, using fallback")
-                    self._current_weights = self._fallback_weights
-                    return False
+                logger.warning("No weights found in database, using fallback")
+                self._current_weights = self._fallback_weights
+                return False
 
         except Exception as e:
             logger.error(f"Failed to load weights from DB: {e}", exc_info=True)
@@ -112,7 +112,7 @@ class WeightManager:
                 self._current_weights = self._fallback_weights
             return False
 
-    def get_current_weights(self) -> Dict[str, float]:
+    def get_current_weights(self) -> dict[str, float]:
         """
         Get current signal weights
 
@@ -124,9 +124,9 @@ class WeightManager:
             self._load_weights_from_db()
 
         return {
-            'technical_weight': self._current_weights.technical,
-            'reddit_weight': self._current_weights.reddit,
-            'news_weight': self._current_weights.news
+            "technical_weight": self._current_weights.technical,
+            "reddit_weight": self._current_weights.reddit,
+            "news_weight": self._current_weights.news,
         }
 
     def get_weight_config(self) -> WeightConfig:
@@ -191,7 +191,7 @@ class WeightManager:
             self._refresh_task.cancel()
             logger.info("Weight refresh task stopped")
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """
         Get weight statistics for monitoring/observability
 
@@ -201,18 +201,18 @@ class WeightManager:
         config = self.get_weight_config()
 
         return {
-            'current_weights': {
-                'technical': round(config.technical, 4),
-                'reddit': round(config.reddit, 4),
-                'news': round(config.news, 4)
+            "current_weights": {
+                "technical": round(config.technical, 4),
+                "reddit": round(config.reddit, 4),
+                "news": round(config.news, 4),
             },
-            'last_updated': config.last_updated.isoformat(),
-            'trigger_reason': config.trigger_reason,
-            'sharpe_ratios': {
-                'technical': round(config.sharpe_technical, 3) if config.sharpe_technical else None,
-                'reddit': round(config.sharpe_reddit, 3) if config.sharpe_reddit else None,
-                'news': round(config.sharpe_news, 3) if config.sharpe_news else None
-            }
+            "last_updated": config.last_updated.isoformat(),
+            "trigger_reason": config.trigger_reason,
+            "sharpe_ratios": {
+                "technical": round(config.sharpe_technical, 3) if config.sharpe_technical else None,
+                "reddit": round(config.sharpe_reddit, 3) if config.sharpe_reddit else None,
+                "news": round(config.sharpe_news, 3) if config.sharpe_news else None,
+            },
         }
 
 

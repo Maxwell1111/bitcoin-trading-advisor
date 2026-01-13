@@ -2,9 +2,11 @@
 """
 Visualize backtest results in an HTML dashboard
 """
-import pandas as pd
+
 import json
 from pathlib import Path
+
+import pandas as pd
 
 print("=" * 80)
 print("GENERATING BACKTEST VISUALIZATION".center(80))
@@ -12,34 +14,34 @@ print("=" * 80)
 
 # Load results
 print("\n[1/3] Loading backtest results...")
-df = pd.read_csv('backtest_results.csv')
-df['date'] = pd.to_datetime(df['date'])
+df = pd.read_csv("backtest_results.csv")
+df["date"] = pd.to_datetime(df["date"])
 print(f"✓ Loaded {len(df)} data points")
 
 # Prepare data for visualization
 print("\n[2/3] Preparing visualization data...")
 
 # Convert to lists for JavaScript
-dates = df['date'].dt.strftime('%Y-%m-%d').tolist()
-prices = df['price'].tolist()
-composite_scores = df['composite_score'].tolist()
-recommendations = df['recommendation'].tolist()
-rsi_values = df['rsi_value'].tolist()
-power_law_deviations = df['power_law_deviation'].tolist()
+dates = df["date"].dt.strftime("%Y-%m-%d").tolist()
+prices = df["price"].tolist()
+composite_scores = df["composite_score"].tolist()
+recommendations = df["recommendation"].tolist()
+rsi_values = df["rsi_value"].tolist()
+power_law_deviations = df["power_law_deviation"].tolist()
 
 # Calculate moving averages of composite score
-df['score_ma7'] = df['composite_score'].rolling(window=3, min_periods=1).mean()
-score_ma7 = df['score_ma7'].tolist()
+df["score_ma7"] = df["composite_score"].rolling(window=3, min_periods=1).mean()
+score_ma7 = df["score_ma7"].tolist()
 
 # Color code recommendations
 colors = []
 for rec in recommendations:
-    if 'buy' in rec.lower():
-        colors.append('green' if 'strong' in rec.lower() else 'lightgreen')
-    elif 'sell' in rec.lower():
-        colors.append('red' if 'strong' in rec.lower() else 'lightcoral')
+    if "buy" in rec.lower():
+        colors.append("green" if "strong" in rec.lower() else "lightgreen")
+    elif "sell" in rec.lower():
+        colors.append("red" if "strong" in rec.lower() else "lightcoral")
     else:
-        colors.append('gray')
+        colors.append("gray")
 
 print("✓ Data prepared")
 
@@ -205,7 +207,7 @@ html_content = f"""<!DOCTYPE html>
                     <h4>📈 Your Results</h4>
                     <p><strong>Conservative Strategy:</strong> 97% Hold signals<br>
                     <strong>Interpretation:</strong> The advisor avoided overtrading during 2025's sideways market.<br>
-                    <strong>Accuracy:</strong> {(df['correct'].sum() / len(df) * 100):.1f}% of signals matched price movement</p>
+                    <strong>Accuracy:</strong> {(df["correct"].sum() / len(df) * 100):.1f}% of signals matched price movement</p>
                 </div>
             </div>
         </div>
@@ -213,7 +215,7 @@ html_content = f"""<!DOCTYPE html>
         <div class="stats">
             <div class="stat-card">
                 <div class="stat-label">Period</div>
-                <div class="stat-value" style="font-size: 18px;">{df['date'].iloc[0].strftime('%Y-%m-%d')}<br>to<br>{df['date'].iloc[-1].strftime('%Y-%m-%d')}</div>
+                <div class="stat-value" style="font-size: 18px;">{df["date"].iloc[0].strftime("%Y-%m-%d")}<br>to<br>{df["date"].iloc[-1].strftime("%Y-%m-%d")}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Data Points</div>
@@ -221,19 +223,19 @@ html_content = f"""<!DOCTYPE html>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Avg Composite Score</div>
-                <div class="stat-value">{df['composite_score'].mean():.3f}</div>
+                <div class="stat-value">{df["composite_score"].mean():.3f}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Buy Signals</div>
-                <div class="stat-value" style="color: #17bf63;">{(df['composite_score'] > 0.3).sum()}</div>
+                <div class="stat-value" style="color: #17bf63;">{(df["composite_score"] > 0.3).sum()}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Sell Signals</div>
-                <div class="stat-value" style="color: #f45531;">{(df['composite_score'] < -0.3).sum()}</div>
+                <div class="stat-value" style="color: #f45531;">{(df["composite_score"] < -0.3).sum()}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Hold Signals</div>
-                <div class="stat-value" style="color: #8899a6;">{((df['composite_score'] >= -0.3) & (df['composite_score'] <= 0.3)).sum()}</div>
+                <div class="stat-value" style="color: #8899a6;">{((df["composite_score"] >= -0.3) & (df["composite_score"] <= 0.3)).sum()}</div>
             </div>
         </div>
 
@@ -399,7 +401,7 @@ html_content = f"""<!DOCTYPE html>
         Plotly.newPlot('composite-chart', [trace4], layout2, {{responsive: true}});
 
         // Chart 3: Individual Factors
-        const factorsData = {json.dumps(df[['rsi_score', 'ma_score', 'pl_score', 'macd_score', 'sentiment_score']].to_dict('list'))};
+        const factorsData = {json.dumps(df[["rsi_score", "ma_score", "pl_score", "macd_score", "sentiment_score"]].to_dict("list"))};
 
         const trace5 = {{ x: dates, y: factorsData.rsi_score, name: 'RSI (20%)', type: 'scatter', line: {{ color: '#1da1f2' }} }};
         const trace6 = {{ x: dates, y: factorsData.ma_score, name: 'MA (25%)', type: 'scatter', line: {{ color: '#17bf63' }} }};
@@ -478,11 +480,11 @@ html_content = f"""<!DOCTYPE html>
 """
 
 # Save HTML file
-output_file = Path('backtest_visualization.html')
+output_file = Path("backtest_visualization.html")
 output_file.write_text(html_content)
 
-print(f"✓ Visualization created")
-print(f"\n{'='*80}")
+print("✓ Visualization created")
+print(f"\n{'=' * 80}")
 print(f"✅ Dashboard saved to: {output_file.absolute()}")
-print(f"\nOpen this file in your browser to view the interactive charts!")
-print(f"{'='*80}")
+print("\nOpen this file in your browser to view the interactive charts!")
+print(f"{'=' * 80}")

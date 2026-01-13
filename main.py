@@ -6,22 +6,24 @@ Combines sentiment analysis from crypto news and technical analysis (RSI & MACD)
 to generate Bitcoin trading recommendations.
 """
 
-import sys
 import argparse
+import logging
+import sys
 from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from src.data.price_fetcher import PriceFetcher
-from src.data.news_fetcher import NewsFetcher, MockNewsFetcher
-from src.data.reddit_fetcher import MockRedditFetcher
-from src.analysis.technical import TechnicalAnalyzer
-from src.analysis.sentiment import SentimentAnalyzer
 from src.analysis.power_law import PowerLawModel
+from src.analysis.sentiment import SentimentAnalyzer
+from src.analysis.technical import TechnicalAnalyzer
+from src.data.news_fetcher import MockNewsFetcher
+from src.data.price_fetcher import PriceFetcher
+from src.data.reddit_fetcher import MockRedditFetcher
 from src.engine.recommendation import RecommendationEngine
 from src.utils.config import get_config
-import logging
+from src.utils.logging_config import setup_logging
+
 
 def get_trading_recommendation(
     mock: bool, days: int, news_days: int, articles: int, reddit_posts: int
@@ -44,9 +46,9 @@ def get_trading_recommendation(
         price_fetcher = PriceFetcher(provider="yfinance")
         current_price = price_fetcher.get_current_price()
         logging.info(f"✓ Current BTC Price: ${current_price:,.2f}")
-        
+
         # We need long-term data for the power law model
-        power_law_days = max(days, 1500) 
+        power_law_days = max(days, 1500)
         historical_data = price_fetcher.fetch_historical_data(days=power_law_days)
         logging.info(f"✓ Retrieved {len(historical_data)} days of historical data for analysis.")
 
@@ -62,25 +64,33 @@ def get_trading_recommendation(
             news_fetcher = MockNewsFetcher()
         else:
             # ... (news fetcher logic remains the same)
-            news_fetcher = MockNewsFetcher() # Placeholder for now
-        news_articles = news_fetcher.fetch_news(keywords=['bitcoin', 'btc'], days=news_days, max_articles=articles)
+            news_fetcher = MockNewsFetcher()  # Placeholder for now
+        news_articles = news_fetcher.fetch_news(
+            keywords=["bitcoin", "btc"], days=news_days, max_articles=articles
+        )
         logging.info(f"✓ Retrieved {len(news_articles)} news articles")
 
         # Step 4: Fetch Reddit posts
         logging.info("\n[4/7] Fetching Reddit posts...")
         reddit_fetcher = MockRedditFetcher()
-        reddit_data = reddit_fetcher.fetch_reddit_posts(subreddit='cryptocurrency', limit=reddit_posts)
+        reddit_data = reddit_fetcher.fetch_reddit_posts(
+            subreddit="cryptocurrency", limit=reddit_posts
+        )
         logging.info(f"✓ Retrieved {len(reddit_data)} Reddit posts")
 
         # Step 5: Technical Analysis
         logging.info("\n[5/7] Performing short-term technical analysis...")
         tech_analyzer = TechnicalAnalyzer()
-        technical_results = tech_analyzer.analyze(historical_data.tail(days)) # Use shorter period for TA
-        logging.info(f"✓ Technical analysis recommendation: {technical_results['overall']['recommendation'].upper()}")
+        technical_results = tech_analyzer.analyze(
+            historical_data.tail(days)
+        )  # Use shorter period for TA
+        logging.info(
+            f"✓ Technical analysis recommendation: {technical_results['overall']['recommendation'].upper()}"
+        )
 
         # Step 6: Sentiment Analysis
         logging.info("\n[6/7] Analyzing sentiment...")
-        sentiment_analyzer = SentimentAnalyzer(analyzer_type='vader')
+        sentiment_analyzer = SentimentAnalyzer(analyzer_type="vader")
         news_sentiment_results = sentiment_analyzer.analyze_articles(news_articles)
         logging.info(f"✓ News Sentiment: {news_sentiment_results['overall_sentiment'].upper()}")
         reddit_sentiment_results = sentiment_analyzer.analyze_articles(reddit_data)
@@ -88,17 +98,18 @@ def get_trading_recommendation(
 
         # Step 7: Generate Recommendation
         logging.info("\n[7/7] Generating final recommendation...")
-        engine = RecommendationEngine() # Weights are now handled inside
+        engine = RecommendationEngine()  # Weights are now handled inside
         recommendation = engine.generate_recommendation(
-            power_law_analysis=power_law_results,
             technical_analysis=technical_results,
             news_sentiment_analysis=news_sentiment_results,
             reddit_sentiment_analysis=reddit_sentiment_results,
-            current_price=current_price
+            historical_data={"Close": historical_data["close"].tolist()},
+            current_price=current_price,
+            power_law_macro=power_law_results.get("macro_signal"),
         )
 
         # We also need to return the full power law time series for the chart
-        recommendation['power_law_chart_data'] = power_law_results['time_series']
+        recommendation["power_law_chart_data"] = power_law_results["time_series"]
 
         return recommendation, news_articles, sentiment_analyzer, engine
 
@@ -107,43 +118,58 @@ def get_trading_recommendation(
         raise e
 
 
-
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(
-        description='Bitcoin Portfolio Advisor - Get trading recommendations'
+        description="Bitcoin Portfolio Advisor - Get trading recommendations"
     )
     parser.add_argument(
-        '--mock',
-        action='store_true',
-        help='Use mock data for testing (no API keys required)'
+        "--mock", action="store_true", help="Use mock data for testing (no API keys required)"
     )
     parser.add_argument(
-        '--days',
+        "--days",
         type=int,
         default=100,
-        help='Number of days of historical price data (default: 100)'
+        help="Number of days of historical price data (default: 100)",
     )
     parser.add_argument(
-        '--news-days',
-        type=int,
-        default=7,
-        help='Number of days of news to analyze (default: 7)'
+        "--news-days", type=int, default=7, help="Number of days of news to analyze (default: 7)"
     )
     parser.add_argument(
-        '--articles',
+        "--articles",
         type=int,
         default=50,
-        help='Maximum number of news articles to analyze (default: 50)'
+        help="Maximum number of news articles to analyze (default: 50)",
     )
     parser.add_argument(
-        '--reddit-posts',
+        "--reddit-posts",
         type=int,
         default=100,
-        help='Maximum number of reddit posts to analyze (default: 100)'
+        help="Maximum number of reddit posts to analyze (default: 100)",
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose logging with file and line numbers",
+    )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        help="Optional log file path (e.g., logs/btc_advisor.log)",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Logging level (default: INFO)",
     )
 
     args = parser.parse_args()
+
+    # Setup logging
+    setup_logging(level=args.log_level, log_file=args.log_file, verbose=args.verbose)
 
     print("=" * 70)
     print("BITCOIN PORTFOLIO ADVISOR".center(70))

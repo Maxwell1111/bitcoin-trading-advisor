@@ -330,6 +330,7 @@
 
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="showTab('chart')">📈 Chart & Analysis</button>
+            <button class="nav-tab" onclick="showTab('rebalance')">⚖️ BTC/Gold Rebalance</button>
             <button class="nav-tab" onclick="showTab('intelligence')">🧠 System Intelligence</button>
             <button class="nav-tab" onclick="showTab('education')">🎓 Learn</button>
             <button class="nav-tab" onclick="window.location.href='/'">🤖 AI Advisor</button>
@@ -723,6 +724,278 @@
             </div>
         </div>
 
+        <div id="rebalanceTab" style="display: none;">
+            <div class="card">
+                <div id="rebalanceSignal" class="price-display" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <h2>BTC/Gold Rebalancing Signal</h2>
+                    <div id="rebalanceRecommendation" style="font-size: 2.5em; font-weight: bold; margin: 15px 0;">Loading...</div>
+                    <div id="rebalanceConfidence" style="font-size: 1.2em; opacity: 0.9;"></div>
+                </div>
+
+                <!-- Kelly Criterion Rebalance Trigger Panel -->
+                <div id="kellyTriggerPanel" class="card" style="margin: 20px 0; padding: 20px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 2px solid #667eea;">
+                    <h2 style="color: #667eea; margin: 0 0 20px 0;">Kelly Criterion Rebalance Trigger</h2>
+
+                    <!-- Urgency Indicator -->
+                    <div id="triggerUrgency" style="text-align: center; padding: 15px; border-radius: 10px; margin-bottom: 20px; background: #2a2a4e;">
+                        <div style="font-size: 0.9em; opacity: 0.7; margin-bottom: 5px;">REBALANCE URGENCY</div>
+                        <div id="urgencyLevel" style="font-size: 2em; font-weight: bold;">--</div>
+                        <div id="shouldRebalance" style="font-size: 1.1em; margin-top: 10px;">--</div>
+                    </div>
+
+                    <!-- Current vs Target Allocation -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div style="background: #2a2a4e; padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 0.9em; opacity: 0.7; margin-bottom: 8px;">CURRENT ALLOCATION</div>
+                            <div style="display: flex; justify-content: center; gap: 20px;">
+                                <div>
+                                    <div style="color: #f7931a; font-size: 1.5em; font-weight: bold;" id="currentBtcPct">100%</div>
+                                    <div style="font-size: 0.8em; opacity: 0.7;">BTC</div>
+                                </div>
+                                <div>
+                                    <div style="color: #ffd700; font-size: 1.5em; font-weight: bold;" id="currentGoldPct">0%</div>
+                                    <div style="font-size: 0.8em; opacity: 0.7;">Gold</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="background: #2a2a4e; padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 0.9em; opacity: 0.7; margin-bottom: 8px;">TARGET ALLOCATION (Kelly)</div>
+                            <div style="display: flex; justify-content: center; gap: 20px;">
+                                <div>
+                                    <div style="color: #f7931a; font-size: 1.5em; font-weight: bold;" id="targetBtcPct">70%</div>
+                                    <div style="font-size: 0.8em; opacity: 0.7;">BTC</div>
+                                </div>
+                                <div>
+                                    <div style="color: #ffd700; font-size: 1.5em; font-weight: bold;" id="targetGoldPct">30%</div>
+                                    <div style="font-size: 0.8em; opacity: 0.7;">Gold</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Suggested Action -->
+                    <div id="suggestedAction" style="background: linear-gradient(135deg, #667eea40 0%, #764ba240 100%); padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
+                        <div style="font-size: 0.9em; opacity: 0.7; margin-bottom: 8px;">SUGGESTED ACTION</div>
+                        <div id="actionText" style="font-size: 1.3em; font-weight: bold;">Loading...</div>
+                        <div id="newAllocationText" style="font-size: 0.95em; opacity: 0.8; margin-top: 8px;">--</div>
+                    </div>
+
+                    <!-- Trigger Conditions Checklist -->
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #667eea; margin-bottom: 15px; font-size: 1.1em;">Trigger Conditions</h3>
+                        <div id="triggerChecklist" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="trigger-item" id="trigger_rsi_overbought"><span class="trigger-status">--</span> RSI Overbought (>70)</div>
+                            <div class="trigger-item" id="trigger_volatility_elevated"><span class="trigger-status">--</span> Volatility Elevated</div>
+                            <div class="trigger-item" id="trigger_at_upper_bollinger"><span class="trigger-status">--</span> Upper Bollinger Band</div>
+                            <div class="trigger-item" id="trigger_gold_outperforming"><span class="trigger-status">--</span> Gold Outperforming</div>
+                            <div class="trigger-item" id="trigger_negative_momentum"><span class="trigger-status">--</span> Negative BTC Momentum</div>
+                            <div class="trigger-item" id="trigger_macd_bearish"><span class="trigger-status">--</span> MACD Bearish</div>
+                            <div class="trigger-item" id="trigger_low_correlation"><span class="trigger-status">--</span> Low Correlation</div>
+                            <div class="trigger-item" id="trigger_gold_positive_momentum"><span class="trigger-status">--</span> Gold Positive Momentum</div>
+                        </div>
+                        <div style="text-align: center; margin-top: 10px; opacity: 0.7; font-size: 0.9em;">
+                            <span id="activeTriggersCount">0</span>/10 triggers active | Urgency Score: <span id="urgencyScore">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Price Targets -->
+                    <div>
+                        <h3 style="color: #667eea; margin-bottom: 15px; font-size: 1.1em;">BTC Price Targets</h3>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                            <div style="background: #2a2a4e; padding: 12px; border-radius: 8px;">
+                                <div style="font-size: 0.8em; opacity: 0.7;">Current Price</div>
+                                <div style="font-size: 1.2em; color: #f7931a; font-weight: bold;" id="currentPriceTarget">$--</div>
+                            </div>
+                            <div style="background: #2a2a4e; padding: 12px; border-radius: 8px;">
+                                <div style="font-size: 0.8em; opacity: 0.7;">Consider Rebalance Above</div>
+                                <div style="font-size: 1.2em; color: #4ecdc4; font-weight: bold;" id="considerPrice">$--</div>
+                            </div>
+                            <div style="background: #2a2a4e; padding: 12px; border-radius: 8px;">
+                                <div style="font-size: 0.8em; opacity: 0.7;">Strong Rebalance Above</div>
+                                <div style="font-size: 1.2em; color: #f39c12; font-weight: bold;" id="strongPrice">$--</div>
+                            </div>
+                            <div style="background: #2a2a4e; padding: 12px; border-radius: 8px;">
+                                <div style="font-size: 0.8em; opacity: 0.7;">Hold Position Below</div>
+                                <div style="font-size: 1.2em; color: #e74c3c; font-weight: bold;" id="holdPrice">$--</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Confidence -->
+                    <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #3a3a5e;">
+                        <span style="opacity: 0.7;">Signal Confidence: </span>
+                        <span id="triggerConfidence" style="font-weight: bold;">--%</span>
+                        <span id="triggerConfidenceInterval" style="opacity: 0.7; font-size: 0.9em;">(-- - --%)</span>
+                    </div>
+                </div>
+                <style>
+                    .trigger-item {
+                        background: #2a2a4e;
+                        padding: 10px 12px;
+                        border-radius: 8px;
+                        font-size: 0.9em;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+                    .trigger-status {
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 50%;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 0.8em;
+                    }
+                    .trigger-active .trigger-status {
+                        background: #27ae60;
+                        color: white;
+                    }
+                    .trigger-inactive .trigger-status {
+                        background: #3a3a5e;
+                        color: #888;
+                    }
+                </style>
+
+                <h2 style="color: #667eea; margin: 30px 0 20px 0;">Suggested Allocation</h2>
+                <div class="stat-grid">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #f7931a20 0%, #f7931a40 100%);">
+                        <div class="stat-label">Bitcoin Allocation</div>
+                        <div class="stat-value" id="btcAllocation" style="color: #f7931a;">--%</div>
+                    </div>
+                    <div class="stat-card" style="background: linear-gradient(135deg, #ffd70020 0%, #ffd70040 100%);">
+                        <div class="stat-label">Gold Allocation</div>
+                        <div class="stat-value" id="goldAllocation" style="color: #b8860b;">--%</div>
+                    </div>
+                </div>
+
+                <div id="rebalanceReasoning" class="edu-box" style="margin: 20px 0;">
+                    <strong>Analysis Reasoning:</strong>
+                    <p id="reasoningText">Loading analysis...</p>
+                </div>
+
+                <h3 style="color: #667eea; margin: 30px 0 15px 0;">📊 Bitcoin Indicators</h3>
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">BTC Price</div>
+                        <div class="stat-value" id="btcPrice">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">BTC RSI (14)</div>
+                        <div class="stat-value" id="btcRsi">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">BTC Volatility</div>
+                        <div class="stat-value" id="btcVolatility">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">BTC Momentum</div>
+                        <div class="stat-value" id="btcMomentum">--</div>
+                    </div>
+                </div>
+
+                <h3 style="color: #b8860b; margin: 30px 0 15px 0;">🥇 Gold Indicators</h3>
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Gold Price (GLD)</div>
+                        <div class="stat-value" id="goldPrice" style="color: #b8860b;">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Gold RSI (14)</div>
+                        <div class="stat-value" id="goldRsi">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Gold Volatility</div>
+                        <div class="stat-value" id="goldVolatility">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Gold Momentum</div>
+                        <div class="stat-value" id="goldMomentum">--</div>
+                    </div>
+                </div>
+
+                <h3 style="color: #667eea; margin: 30px 0 15px 0;">🔗 Correlation & Risk</h3>
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">BTC/Gold Correlation</div>
+                        <div class="stat-value" id="correlation">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Volatility Ratio</div>
+                        <div class="stat-value" id="volRatio">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Relative Strength</div>
+                        <div class="stat-value" id="relStrength">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Risk Level</div>
+                        <div class="stat-value" id="riskLevel">--</div>
+                    </div>
+                </div>
+
+                <!-- Comparison Chart -->
+                <h3 style="color: #667eea; margin: 30px 0 15px 0;">📈 Price Performance Comparison</h3>
+                <div class="chart-controls">
+                    <button class="chart-btn active" onclick="changeRebalanceTimeframe(30)">30 Days</button>
+                    <button class="chart-btn" onclick="changeRebalanceTimeframe(60)">60 Days</button>
+                    <button class="chart-btn" onclick="changeRebalanceTimeframe(90)">90 Days</button>
+                </div>
+                <div class="chart-container" style="height: 350px;">
+                    <canvas id="rebalanceChart"></canvas>
+                </div>
+                <div id="loadingRebalanceChart" class="loading">Loading comparison data</div>
+            </div>
+
+            <!-- Educational Section -->
+            <div class="card" style="margin-top: 20px;">
+                <div class="edu-section">
+                    <h2>Understanding BTC/Gold Rebalancing</h2>
+
+                    <div class="edu-box">
+                        <strong>Why Combine Bitcoin and Gold?</strong>
+                        <p>Bitcoin and Gold serve different roles in a portfolio. Gold is a traditional store of value with lower volatility, while Bitcoin offers higher growth potential with higher risk. Combining them can provide:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                            <li><strong>Diversification:</strong> Their low correlation means losses in one may be offset by gains in the other</li>
+                            <li><strong>Risk Management:</strong> Gold's stability can cushion Bitcoin's volatility</li>
+                            <li><strong>Growth Potential:</strong> Bitcoin's upside while maintaining a safety net</li>
+                        </ul>
+                    </div>
+
+                    <div class="edu-box success">
+                        <strong>📈 When to Increase Bitcoin Allocation</strong>
+                        <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                            <li>Bitcoin RSI is oversold (below 30) - potential accumulation zone</li>
+                            <li>Bitcoin volatility is low - favorable risk environment</li>
+                            <li>BTC is outperforming Gold on relative strength</li>
+                            <li>MACD showing bullish momentum</li>
+                        </ul>
+                    </div>
+
+                    <div class="edu-box warning">
+                        <strong>🥇 When to Increase Gold Allocation</strong>
+                        <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                            <li>Bitcoin RSI is overbought (above 75) - potential correction ahead</li>
+                            <li>Bitcoin volatility is extremely high - seek stability</li>
+                            <li>Gold is outperforming Bitcoin on relative strength</li>
+                            <li>Macro uncertainty or risk-off environment</li>
+                        </ul>
+                    </div>
+
+                    <div class="edu-box" style="border-left-color: #9966FF;">
+                        <strong>⚠️ Important Disclaimer</strong>
+                        <p>This rebalancing signal is for educational and informational purposes only. It is not financial advice. Always:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px;">
+                            <li>Do your own research before making investment decisions</li>
+                            <li>Consider your personal risk tolerance and investment horizon</li>
+                            <li>Consult with a qualified financial advisor</li>
+                            <li>Never invest more than you can afford to lose</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="educationTab" style="display: none;">
             <div class="card edu-section">
                 <h2>📚 Understanding Bitcoin's Moving Averages</h2>
@@ -893,15 +1166,20 @@
         // Tab switching
         function showTab(tabName) {
             document.getElementById('chartTab').style.display = tabName === 'chart' ? 'block' : 'none';
+            document.getElementById('rebalanceTab').style.display = tabName === 'rebalance' ? 'block' : 'none';
             document.getElementById('intelligenceTab').style.display = tabName === 'intelligence' ? 'block' : 'none';
             document.getElementById('educationTab').style.display = tabName === 'education' ? 'block' : 'none';
 
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
 
-            // Load intelligence data when switching to that tab
+            // Load data when switching to tabs
             if (tabName === 'intelligence') {
                 loadIntelligenceData();
+            }
+            if (tabName === 'rebalance') {
+                loadRebalanceData();
+                loadRebalanceChart(rebalanceTimeframe);
             }
         }
 
@@ -1675,6 +1953,276 @@
                                 display: true,
                                 text: 'Accuracy Rate (%)'
                             }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ===== REBALANCE TAB FUNCTIONS =====
+        let rebalanceChart = null;
+        let rebalanceTimeframe = 30;
+
+        // Load rebalance signal data
+        async function loadRebalanceData() {
+            try {
+                const response = await fetch('/api/rebalance?days=90');
+                const data = await response.json();
+
+                if (data.error) {
+                    document.getElementById('rebalanceRecommendation').textContent = 'Error loading data';
+                    return;
+                }
+
+                // Update recommendation display
+                const recText = formatRecommendation(data.recommendation);
+                document.getElementById('rebalanceRecommendation').textContent = recText;
+                updateRecommendationStyle(data.recommendation);
+
+                // Confidence with interval
+                const ci = data.confidence_interval || { lower: data.confidence - 0.15, upper: data.confidence + 0.15 };
+                document.getElementById('rebalanceConfidence').textContent =
+                    `Confidence: ${(data.confidence * 100).toFixed(0)}% (${(ci.lower * 100).toFixed(0)}% - ${(ci.upper * 100).toFixed(0)}%)`;
+
+                // Allocation
+                document.getElementById('btcAllocation').textContent = data.suggested_allocation.btc_pct + '%';
+                document.getElementById('goldAllocation').textContent = data.suggested_allocation.gold_pct + '%';
+
+                // Reasoning
+                document.getElementById('reasoningText').textContent = data.reasoning || 'Analysis in progress...';
+
+                // Bitcoin indicators
+                if (data.bitcoin && data.bitcoin.current) {
+                    document.getElementById('btcPrice').textContent = '$' + data.bitcoin.current.price.toLocaleString();
+                    document.getElementById('btcRsi').textContent = data.bitcoin.current.rsi;
+                    document.getElementById('btcRsi').className = 'stat-value ' + getRsiClass(data.bitcoin.current.rsi);
+                    document.getElementById('btcVolatility').textContent = data.bitcoin.current.volatility + '%';
+                    document.getElementById('btcMomentum').textContent = formatMomentum(data.bitcoin.momentum);
+                    document.getElementById('btcMomentum').className = 'stat-value ' + getMomentumClass(data.bitcoin.momentum);
+                }
+
+                // Gold indicators
+                if (data.gold && data.gold.current) {
+                    document.getElementById('goldPrice').textContent = '$' + data.gold.current.price.toLocaleString();
+                    document.getElementById('goldRsi').textContent = data.gold.current.rsi;
+                    document.getElementById('goldRsi').className = 'stat-value ' + getRsiClass(data.gold.current.rsi);
+                    document.getElementById('goldVolatility').textContent = data.gold.current.volatility + '%';
+                    document.getElementById('goldMomentum').textContent = formatMomentum(data.gold.momentum);
+                    document.getElementById('goldMomentum').className = 'stat-value ' + getMomentumClass(data.gold.momentum);
+                }
+
+                // Correlation & Risk
+                if (data.correlation) {
+                    document.getElementById('correlation').textContent = data.correlation.current;
+                }
+                if (data.volatility_ratio) {
+                    document.getElementById('volRatio').textContent = data.volatility_ratio + 'x';
+                }
+                if (data.relative_strength) {
+                    document.getElementById('relStrength').textContent = formatRelStrength(data.relative_strength.trend);
+                }
+                if (data.risk_assessment) {
+                    document.getElementById('riskLevel').textContent = data.risk_assessment.overall.replace('_', ' ');
+                    document.getElementById('riskLevel').className = 'stat-value ' + (data.risk_assessment.overall === 'elevated' ? 'bearish' : '');
+                }
+
+            } catch (error) {
+                console.error('Error loading rebalance data:', error);
+                document.getElementById('rebalanceRecommendation').textContent = 'Error loading signal';
+            }
+        }
+
+        // Format recommendation text
+        function formatRecommendation(rec) {
+            const map = {
+                'increase_btc': '📈 Increase Bitcoin',
+                'slight_increase_btc': '↗️ Slightly Increase BTC',
+                'increase_gold': '🥇 Increase Gold',
+                'slight_increase_gold': '↗️ Slightly Increase Gold',
+                'hold_current': '⚖️ Hold Current',
+                'insufficient_data': '⏳ Insufficient Data'
+            };
+            return map[rec] || rec.replace(/_/g, ' ');
+        }
+
+        // Update recommendation style
+        function updateRecommendationStyle(rec) {
+            const signal = document.getElementById('rebalanceSignal');
+            if (rec.includes('btc')) {
+                signal.style.background = 'linear-gradient(135deg, #f7931a 0%, #f5a623 100%)';
+            } else if (rec.includes('gold')) {
+                signal.style.background = 'linear-gradient(135deg, #b8860b 0%, #ffd700 100%)';
+            } else {
+                signal.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            }
+        }
+
+        // Format momentum text
+        function formatMomentum(momentum) {
+            if (!momentum) return '--';
+            return momentum.replace(/_/g, ' ');
+        }
+
+        // Get RSI class for styling
+        function getRsiClass(rsi) {
+            if (rsi > 70) return 'bearish';
+            if (rsi < 30) return 'bullish';
+            return '';
+        }
+
+        // Get momentum class
+        function getMomentumClass(momentum) {
+            if (!momentum) return '';
+            if (momentum.includes('bullish')) return 'bullish';
+            if (momentum.includes('bearish')) return 'bearish';
+            return '';
+        }
+
+        // Format relative strength
+        function formatRelStrength(trend) {
+            const map = {
+                'btc_outperforming': 'BTC Leading',
+                'gold_outperforming': 'Gold Leading',
+                'neutral': 'Neutral'
+            };
+            return map[trend] || trend;
+        }
+
+        // Change rebalance chart timeframe
+        function changeRebalanceTimeframe(days) {
+            rebalanceTimeframe = days;
+
+            // Update button states
+            document.querySelectorAll('#rebalanceTab .chart-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            loadRebalanceChart(days);
+        }
+
+        // Load rebalance comparison chart
+        async function loadRebalanceChart(days) {
+            document.getElementById('loadingRebalanceChart').style.display = 'block';
+            if (rebalanceChart) {
+                rebalanceChart.destroy();
+            }
+
+            try {
+                const response = await fetch(`/api/rebalance/history?days=${days}`);
+                const data = await response.json();
+
+                document.getElementById('loadingRebalanceChart').style.display = 'none';
+
+                createRebalanceChart(data);
+
+            } catch (error) {
+                document.getElementById('loadingRebalanceChart').innerHTML = `<p style="color: red;">Error loading chart: ${error.message}</p>`;
+                console.error('Error loading rebalance chart:', error);
+            }
+        }
+
+        // Create the rebalance comparison chart
+        function createRebalanceChart(data) {
+            const ctx = document.getElementById('rebalanceChart').getContext('2d');
+
+            rebalanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.dates,
+                    datasets: [
+                        {
+                            label: 'Bitcoin (Normalized)',
+                            data: data.btc_prices,
+                            borderColor: '#f7931a',
+                            backgroundColor: 'rgba(247, 147, 26, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.2,
+                            pointRadius: 0,
+                            fill: true,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Gold (Normalized)',
+                            data: data.gold_prices,
+                            borderColor: '#ffd700',
+                            backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.2,
+                            pointRadius: 0,
+                            fill: true,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Rolling Correlation (14d)',
+                            data: data.rolling_correlation,
+                            borderColor: '#667eea',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            tension: 0.2,
+                            pointRadius: 0,
+                            fill: false,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        if (context.dataset.yAxisID === 'y1') {
+                                            label += context.parsed.y.toFixed(3);
+                                        } else {
+                                            label += context.parsed.y.toFixed(2);
+                                        }
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: rebalanceTimeframe <= 30 ? 'day' : 'week'
+                            },
+                            grid: { display: false }
+                        },
+                        y: {
+                            position: 'left',
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Normalized Price (Base=100)'
+                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                        },
+                        y1: {
+                            position: 'right',
+                            min: -1,
+                            max: 1,
+                            title: {
+                                display: true,
+                                text: 'Correlation'
+                            },
+                            grid: { drawOnChartArea: false }
                         }
                     }
                 }

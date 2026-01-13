@@ -4,12 +4,12 @@ Database session management and initialization
 Uses scoped_session for thread-safe session handling in FastAPI
 """
 
-import os
+import logging
 from pathlib import Path
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.pool import StaticPool
-import logging
 
 from .models import Base, WeightHistory
 
@@ -38,7 +38,7 @@ def get_engine():
             DATABASE_URL,
             connect_args={"check_same_thread": False},  # Needed for SQLite with multiple threads
             poolclass=StaticPool,  # Use static pool for SQLite
-            echo=False  # Set to True for SQL debugging
+            echo=False,  # Set to True for SQL debugging
         )
 
         logger.info(f"Database engine created: {DATABASE_PATH}")
@@ -115,9 +115,9 @@ def init_database(drop_existing=False):
                     weight_technical=0.60,
                     weight_reddit=0.25,
                     weight_news=0.15,
-                    trigger_reason='initial_setup',
+                    trigger_reason="initial_setup",
                     days_of_data=0,
-                    prior_weight_factor=1.0
+                    prior_weight_factor=1.0,
                 )
                 session.add(initial_weights)
                 session.commit()

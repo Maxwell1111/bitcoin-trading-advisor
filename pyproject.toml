@@ -1,38 +1,208 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mediabiasscorer"
-description = ""
-readme = "README.md"
-requires-python = ">=3.7"
-keywords = [""]
-license = { text = "BSD 3-Clause License" }
-classifiers = ["Programming Language :: Python :: 3"]
-dynamic = ["dependencies"]
-# Change this with the version number bump.
+name = "bitcoin-trading-advisor"
 version = "1.0.0"
+description = "Bitcoin Portfolio Advisor - AI-powered trading recommendations combining sentiment and technical analysis"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "Bitcoin Trading Advisor Team"}
+]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 
-[tool.ruff]
-line-length = 200
-
-[tool.pylint."MESSAGES CONTROL"]
-good-names = [
-    "c",
-    "i",
-    "ok",
-    "id",
-    "e",
-    "f"
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.0",
+    "black>=25.0.0",
+    "mypy>=1.0.0",
+    "pre-commit>=4.0.0",
+]
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+    "pytest-xdist>=3.3.0",
+    "requests-mock>=1.11.0",
+    "freezegun>=1.2.2",
+    "hypothesis>=6.82.0",
 ]
 
+[project.scripts]
+btc-advisor = "main:main"
+
+# ============================================================================
+# RUFF - Lightning-fast Python linter (replaces flake8, isort, pylint)
+# ============================================================================
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+indent-width = 4
+
+[tool.ruff.lint]
+# Enable recommended rules + additional helpful ones
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "RET", # flake8-return
+    "ARG", # flake8-unused-arguments
+    "PTH", # flake8-use-pathlib
+]
+ignore = [
+    "E501",   # Line too long (handled by formatter)
+    "E722",   # Bare except (fix later)
+    "B008",   # Do not perform function calls in argument defaults
+    "B023",   # Function definition does not bind loop variable
+    "B904",   # Allow raising exceptions without from
+    "RET504", # Unnecessary variable assignment before return
+    "ARG001", "ARG002", "ARG005",  # Unused arguments (fix later)
+    "SIM108", # Ternary operator suggestions
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ARG", "S101", "PTH"]  # Allow unused args, asserts, and os.path in tests
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+"main.py" = ["PTH", "SIM108"]  # Allow os.path and if-else in main.py
+"src/analysis/power_law.py" = ["N806"]  # Allow uppercase variable names (mathematical notation)
+"src/analysis/rebalance_analyzer.py" = ["ARG002"]  # Unused args in new analyzer
+"src/api/app.py" = ["E722", "ARG001"]  # Bare except and unused args in API (fix later)
+"src/data/news_fetcher.py" = ["ARG002", "E722"]  # Legacy code
+"install.py" = ["PTH", "SIM", "UP", "ARG"]  # Legacy install script
+"run_dev.py" = ["PTH", "SIM", "UP"]  # Legacy dev script
+"prod.py" = ["PTH", "SIM", "UP", "ARG005"]  # Legacy prod script
+"optimize_model.py" = ["B023"]  # Loop variable binding
+"*.py" = ["PTH"]  # Allow os.path in root level scripts for now
+
+# ============================================================================
+# BLACK - Code formatter
+# ============================================================================
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | venv
+  | build
+  | dist
+  | __pycache__
+)/
+'''
+
+# ============================================================================
+# MYPY - Static type checker
+# ============================================================================
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = false  # Too strict for now
+warn_unused_configs = true
+disallow_untyped_defs = false  # Set to true once types are added
+ignore_missing_imports = true
+show_error_codes = true
+pretty = true
+disable_error_code = ["import-untyped", "arg-type", "no-any-return", "var-annotated", "attr-defined", "misc", "assignment", "call-arg"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "src.api.*"
+ignore_errors = true  # API has many type issues, fix later
+
+[[tool.mypy.overrides]]
+module = "src.analysis.rebalance_analyzer"
+ignore_errors = true  # New file with type issues, fix later
+
+[[tool.mypy.overrides]]
+module = ["backtest_advisor", "install", "prod", "run_dev", "*.py"]
+ignore_errors = true  # Legacy scripts, fix later
+
+# ============================================================================
+# PYTEST - Testing framework
+# ============================================================================
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "-ra",
+    "--strict-markers",
+    "--cov=src",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    "--cov-fail-under=70",
+]
+markers = [
+    "unit: Unit tests for individual components",
+    "integration: Integration tests for complete flows",
+    "slow: Tests that take significant time to run",
+    "requires_api: Tests that require external API access",
+]
+
+# ============================================================================
+# COVERAGE - Test coverage reporting
+# ============================================================================
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+precision = 2
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
+
+# ============================================================================
+# BANDIT - Security linter
+# ============================================================================
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv"]
+exclude = ["./install.py", "./run_dev.py", "./prod.py", "./backtest_advisor.py", "./run_api.py"]
+skips = ["B101", "B104", "B105", "B110", "B311", "B602", "B605", "B607", "B603", "B404"]  # Allow dev/install scripts with shell commands
+
+# ============================================================================
+# ISORT - Import sorting (handled by ruff now, kept for compatibility)
+# ============================================================================
 [tool.isort]
 profile = "black"
+line-length = 100
 
-[tool.mypy]
-ignore_missing_imports = true
-disable_error_code = ["import-untyped"]
+# ============================================================================
+# PYLINT - Additional linting (optional, ruff covers most of this)
+# ============================================================================
+[tool.pylint."MESSAGES CONTROL"]
+good-names = [
+    "c", "i", "ok", "id", "e", "f", "df", "ax", "fig"
+]
+max-line-length = 100

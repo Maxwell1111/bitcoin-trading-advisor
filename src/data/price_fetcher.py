@@ -2,10 +2,10 @@
 Bitcoin price data fetcher
 """
 
+from datetime import datetime, timedelta
+
 import pandas as pd
 import requests
-from datetime import datetime, timedelta
-from typing import Optional
 import yfinance as yf
 
 
@@ -34,21 +34,16 @@ class PriceFetcher:
         """
         if self.provider == "coingecko":
             return self._fetch_coingecko(days)
-        elif self.provider == "yfinance":
+        if self.provider == "yfinance":
             return self._fetch_yfinance(days)
-        elif self.provider == "binance":
+        if self.provider == "binance":
             return self._fetch_binance(days)
-        else:
-            raise ValueError(f"Unknown provider: {self.provider}")
+        raise ValueError(f"Unknown provider: {self.provider}")
 
     def _fetch_coingecko(self, days: int) -> pd.DataFrame:
         """Fetch data from CoinGecko API"""
         url = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
-        params = {
-            'vs_currency': 'usd',
-            'days': days,
-            'interval': 'daily'
-        }
+        params = {"vs_currency": "usd", "days": days, "interval": "daily"}
 
         try:
             response = requests.get(url, params=params, timeout=10)
@@ -56,20 +51,20 @@ class PriceFetcher:
             data = response.json()
 
             # Convert to DataFrame
-            prices = data['prices']
-            volumes = data['total_volumes']
+            prices = data["prices"]
+            volumes = data["total_volumes"]
 
-            df = pd.DataFrame(prices, columns=['timestamp', 'close'])
-            df['volume'] = [v[1] for v in volumes]
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+            df = pd.DataFrame(prices, columns=["timestamp", "close"])
+            df["volume"] = [v[1] for v in volumes]
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
 
             # For CoinGecko, we only get close prices, so we approximate OHLC
-            df['open'] = df['close']
-            df['high'] = df['close']
-            df['low'] = df['close']
+            df["open"] = df["close"]
+            df["high"] = df["close"]
+            df["low"] = df["close"]
 
-            df = df[['timestamp', 'open', 'high', 'low', 'close', 'volume']]
-            df = df.set_index('timestamp')
+            df = df[["timestamp", "open", "high", "low", "close", "volume"]]
+            df = df.set_index("timestamp")
 
             return df
 
@@ -90,17 +85,19 @@ class PriceFetcher:
             df = btc.history(start=start_date, end=end_date)
 
             # Rename columns to match our format
-            df.index.name = 'timestamp'
-            df = df.rename(columns={
-                'Open': 'open',
-                'High': 'high',
-                'Low': 'low',
-                'Close': 'close',
-                'Volume': 'volume'
-            })
+            df.index.name = "timestamp"
+            df = df.rename(
+                columns={
+                    "Open": "open",
+                    "High": "high",
+                    "Low": "low",
+                    "Close": "close",
+                    "Volume": "volume",
+                }
+            )
 
             # Select only needed columns
-            df = df[['open', 'high', 'low', 'close', 'volume']]
+            df = df[["open", "high", "low", "close", "volume"]]
 
             return df
 
@@ -116,11 +113,11 @@ class PriceFetcher:
         start_time = int((datetime.now() - timedelta(days=days)).timestamp() * 1000)
 
         params = {
-            'symbol': 'BTCUSDT',
-            'interval': '1d',
-            'startTime': start_time,
-            'endTime': end_time,
-            'limit': 1000
+            "symbol": "BTCUSDT",
+            "interval": "1d",
+            "startTime": start_time,
+            "endTime": end_time,
+            "limit": 1000,
         }
 
         try:
@@ -129,20 +126,32 @@ class PriceFetcher:
             data = response.json()
 
             # Convert to DataFrame
-            df = pd.DataFrame(data, columns=[
-                'timestamp', 'open', 'high', 'low', 'close', 'volume',
-                'close_time', 'quote_volume', 'trades', 'taker_buy_base',
-                'taker_buy_quote', 'ignore'
-            ])
+            df = pd.DataFrame(
+                data,
+                columns=[
+                    "timestamp",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "close_time",
+                    "quote_volume",
+                    "trades",
+                    "taker_buy_base",
+                    "taker_buy_quote",
+                    "ignore",
+                ],
+            )
 
             # Convert types
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-            for col in ['open', 'high', 'low', 'close', 'volume']:
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+            for col in ["open", "high", "low", "close", "volume"]:
                 df[col] = df[col].astype(float)
 
             # Select and set index
-            df = df[['timestamp', 'open', 'high', 'low', 'close', 'volume']]
-            df = df.set_index('timestamp')
+            df = df[["timestamp", "open", "high", "low", "close", "volume"]]
+            df = df.set_index("timestamp")
 
             return df
 
@@ -158,27 +167,27 @@ class PriceFetcher:
         """
         if self.provider == "coingecko":
             url = "https://api.coingecko.com/api/v3/simple/price"
-            params = {'ids': 'bitcoin', 'vs_currencies': 'usd'}
+            params = {"ids": "bitcoin", "vs_currencies": "usd"}
 
             try:
                 response = requests.get(url, params=params, timeout=10)
                 response.raise_for_status()
                 data = response.json()
-                return data['bitcoin']['usd']
+                return data["bitcoin"]["usd"]
             except Exception as e:
                 raise Exception(f"Error fetching current price: {e}")
 
         elif self.provider == "yfinance":
             try:
                 btc = yf.Ticker("BTC-USD")
-                return btc.info.get('regularMarketPrice', btc.info.get('currentPrice'))
+                return btc.info.get("regularMarketPrice", btc.info.get("currentPrice"))
             except Exception as e:
                 raise Exception(f"Error fetching current price: {e}")
 
         else:
             # Get latest price from historical data
             df = self.fetch_historical_data(days=1)
-            return df['close'].iloc[-1]
+            return df["close"].iloc[-1]
 
 
 if __name__ == "__main__":

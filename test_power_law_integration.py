@@ -2,11 +2,12 @@
 """
 Quick test to verify power law integration with recommendation engine
 """
+
 import sys
 from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 print("Testing Power Law Integration...")
 print("=" * 70)
@@ -16,6 +17,7 @@ print("\n[1/3] Testing imports...")
 try:
     from src.analysis.power_law import PowerLawModel
     from src.engine.recommendation import RecommendationEngine
+
     print("✓ All modules imported successfully")
 except Exception as e:
     print(f"✗ Import failed: {e}")
@@ -42,9 +44,13 @@ try:
 
     # Check RecommendationEngine.generate_recommendation signature
     gen_rec_sig = inspect.signature(engine.generate_recommendation)
-    expected_params = ['power_law_analysis', 'technical_analysis',
-                      'news_sentiment_analysis', 'reddit_sentiment_analysis',
-                      'current_price']
+    expected_params = [
+        "power_law_analysis",
+        "technical_analysis",
+        "news_sentiment_analysis",
+        "reddit_sentiment_analysis",
+        "current_price",
+    ]
     actual_params = list(gen_rec_sig.parameters.keys())
 
     print(f"  RecommendationEngine.generate_recommendation params: {actual_params}")

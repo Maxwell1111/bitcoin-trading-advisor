@@ -7,7 +7,6 @@ import re
 
 import setuptools
 
-
 URL = ""
 KEYWORDS = ""
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -16,7 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 def get_readme() -> str:
     """Get the contents of the README file."""
     readme = os.path.join(HERE, "README.md")
-    with open(readme, encoding="utf-8", mode="r") as readme_file:
+    with open(readme, encoding="utf-8") as readme_file:
         readme_lines = readme_file.readlines()
     for i, line in enumerate(readme_lines):
         if "../../" in line:

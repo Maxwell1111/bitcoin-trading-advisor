@@ -4,13 +4,22 @@ SQLAlchemy models for adaptive recommendation system
 Based on TECHNICAL_SPEC.md data models section
 """
 
+from datetime import datetime
+
 from sqlalchemy import (
-    Column, Integer, Float, String, DateTime, Boolean, Text, JSON,
-    ForeignKey, Index
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from datetime import datetime
 
 Base = declarative_base()
 
@@ -22,7 +31,8 @@ class Recommendation(Base):
     Stores complete recommendation data including signals, weights used,
     and targets for later validation and accuracy tracking.
     """
-    __tablename__ = 'recommendations'
+
+    __tablename__ = "recommendations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
@@ -54,7 +64,9 @@ class Recommendation(Base):
     stop_loss = Column(Float)
 
     # Operating metadata
-    operating_mode = Column(String(50), nullable=False, index=True)  # 'normal', 'degraded', 'degraded_preferred'
+    operating_mode = Column(
+        String(50), nullable=False, index=True
+    )  # 'normal', 'degraded', 'degraded_preferred'
     signal_sources = Column(Text)  # JSON array: ['technical', 'reddit', 'news']
     request_params = Column(Text)  # JSON: {days, news_days, max_articles}
 
@@ -63,14 +75,18 @@ class Recommendation(Base):
     reasoning = Column(Text)
 
     # Relationships
-    price_snapshots = relationship("PriceSnapshot", back_populates="recommendation", cascade="all, delete-orphan")
-    validation_results = relationship("ValidationResult", back_populates="recommendation", cascade="all, delete-orphan")
+    price_snapshots = relationship(
+        "PriceSnapshot", back_populates="recommendation", cascade="all, delete-orphan"
+    )
+    validation_results = relationship(
+        "ValidationResult", back_populates="recommendation", cascade="all, delete-orphan"
+    )
 
     # Indexes defined in __table_args__
     __table_args__ = (
-        Index('idx_timestamp', 'timestamp'),
-        Index('idx_mode', 'operating_mode'),
-        Index('idx_recommendation', 'recommendation'),
+        Index("idx_timestamp", "timestamp"),
+        Index("idx_mode", "operating_mode"),
+        Index("idx_recommendation", "recommendation"),
     )
 
     def __repr__(self):
@@ -84,10 +100,13 @@ class PriceSnapshot(Base):
     Stores Bitcoin price at various time offsets from recommendation
     for multi-horizon accuracy validation.
     """
-    __tablename__ = 'price_snapshots'
+
+    __tablename__ = "price_snapshots"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    recommendation_id = Column(Integer, ForeignKey('recommendations.id'), nullable=False, index=True)
+    recommendation_id = Column(
+        Integer, ForeignKey("recommendations.id"), nullable=False, index=True
+    )
 
     snapshot_type = Column(String(20), nullable=False)  # 'initial', '4h', '24h', '7d', 'event'
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
@@ -98,8 +117,8 @@ class PriceSnapshot(Base):
     recommendation = relationship("Recommendation", back_populates="price_snapshots")
 
     __table_args__ = (
-        Index('idx_rec_id', 'recommendation_id'),
-        Index('idx_timestamp', 'timestamp'),
+        Index("idx_rec_id", "recommendation_id"),
+        Index("idx_timestamp", "timestamp"),
     )
 
     def __repr__(self):
@@ -113,17 +132,26 @@ class ValidationResult(Base):
     Stores the results of validating recommendations at different
     time horizons and with different validation methods.
     """
-    __tablename__ = 'validation_results'
+
+    __tablename__ = "validation_results"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    recommendation_id = Column(Integer, ForeignKey('recommendations.id'), nullable=False, index=True)
+    recommendation_id = Column(
+        Integer, ForeignKey("recommendations.id"), nullable=False, index=True
+    )
 
-    validation_type = Column(String(20), nullable=False, index=True)  # 'quick_4h', 'standard_24h', 'extended_7d', 'event_based'
+    validation_type = Column(
+        String(20), nullable=False, index=True
+    )  # 'quick_4h', 'standard_24h', 'extended_7d', 'event_based'
     validated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Outcome
-    outcome = Column(String(20), nullable=False, index=True)  # 'success', 'failure', 'expired', 'pending'
-    outcome_reason = Column(String(100))  # 'target_reached', 'stop_loss_hit', 'directional', 'timeout'
+    outcome = Column(
+        String(20), nullable=False, index=True
+    )  # 'success', 'failure', 'expired', 'pending'
+    outcome_reason = Column(
+        String(100)
+    )  # 'target_reached', 'stop_loss_hit', 'directional', 'timeout'
 
     # Performance metrics
     price_change_pct = Column(Float)
@@ -139,9 +167,9 @@ class ValidationResult(Base):
     recommendation = relationship("Recommendation", back_populates="validation_results")
 
     __table_args__ = (
-        Index('idx_rec_id', 'recommendation_id'),
-        Index('idx_type', 'validation_type'),
-        Index('idx_outcome', 'outcome'),
+        Index("idx_rec_id", "recommendation_id"),
+        Index("idx_type", "validation_type"),
+        Index("idx_outcome", "outcome"),
     )
 
     def __repr__(self):
@@ -155,7 +183,8 @@ class AccuracyAggregate(Base):
     Pre-aggregated statistics by day for efficient dashboard queries
     and trend analysis without scanning individual recommendations.
     """
-    __tablename__ = 'accuracy_aggregates'
+
+    __tablename__ = "accuracy_aggregates"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     date = Column(DateTime, nullable=False, unique=True, index=True)
@@ -188,9 +217,7 @@ class AccuracyAggregate(Base):
     mode = Column(String(50))  # Dominant mode for the day
     degraded_time_pct = Column(Float)  # % of day in degraded mode
 
-    __table_args__ = (
-        Index('idx_date', 'date'),
-    )
+    __table_args__ = (Index("idx_date", "date"),)
 
     def __repr__(self):
         return f"<AccuracyAggregate(date={self.date.date()}, total={self.total_recommendations}, acc={self.standard_24h_accuracy})>"
@@ -203,7 +230,8 @@ class WeightHistory(Base):
     Records every change to signal weights with metadata about
     what triggered the change and supporting statistics.
     """
-    __tablename__ = 'weight_history'
+
+    __tablename__ = "weight_history"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
@@ -214,7 +242,9 @@ class WeightHistory(Base):
     weight_news = Column(Float, nullable=False)
 
     # What triggered the change
-    trigger_reason = Column(String(100))  # 'daily_recalc', 'mode_change', 'manual_override', 'initial_setup'
+    trigger_reason = Column(
+        String(100)
+    )  # 'daily_recalc', 'mode_change', 'manual_override', 'initial_setup'
 
     # Supporting data
     days_of_data = Column(Integer)
@@ -225,9 +255,7 @@ class WeightHistory(Base):
     sharpe_news = Column(Float)
     sharpe_combined = Column(Float)
 
-    __table_args__ = (
-        Index('idx_timestamp', 'timestamp'),
-    )
+    __table_args__ = (Index("idx_timestamp", "timestamp"),)
 
     def __repr__(self):
         return f"<WeightHistory(time={self.timestamp}, tech={self.weight_technical:.2f}, reddit={self.weight_reddit:.2f}, news={self.weight_news:.2f})>"

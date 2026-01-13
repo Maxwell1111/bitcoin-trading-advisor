@@ -1,15 +1,14 @@
 """
 
-  curl https://raw.githubusercontent.com/zackees/install.py/main/install.py | python
-  To enter the environment run:
-    source activate.sh
+curl https://raw.githubusercontent.com/zackees/install.py/main/install.py | python
+To enter the environment run:
+  source activate.sh
 
 
-  Notes:
-    This script is tested to work using python2 and python3 from a fresh install. The only side effect
-    of running this script is that virtualenv will be globally installed if it isn't already.
+Notes:
+  This script is tested to work using python2 and python3 from a fresh install. The only side effect
+  of running this script is that virtualenv will be globally installed if it isn't already.
 """
-
 
 import argparse
 import os
@@ -21,7 +20,7 @@ import warnings
 from shutil import which as find_executable
 from typing import Optional
 
-IS_GITHUB = 'GITHUB_WORKSPACE' in os.environ
+IS_GITHUB = "GITHUB_WORKSPACE" in os.environ
 
 # This activation script adds the ability to run it from any path and also
 # aliasing pip3 and python3 to pip/python so that this works across devices.
@@ -80,7 +79,9 @@ os.chdir(os.path.abspath(HERE))
 print(f"install.py changed directory to {os.getcwd()}")
 
 
-def _exe(cmd: str, check: bool = True, cwd: Optional[str] = None, env: Optional[dict] = None) -> None:
+def _exe(
+    cmd: str, check: bool = True, cwd: Optional[str] = None, env: Optional[dict] = None
+) -> None:
     msg = (
         "########################################\n"
         f"# Executing '{cmd}'\n"
@@ -105,9 +106,7 @@ def is_tool(name):
 def platform_ensure_python_installed() -> None:
     try:
         python_x = "python" if sys.platform == "win32" else "python3"
-        stdout = subprocess.check_output(
-            [python_x, "--version"], universal_newlines=True
-        )
+        stdout = subprocess.check_output([python_x, "--version"], universal_newlines=True)
         print(f"Python is already installed: {stdout}")
         return
     except Exception:  # pylint: disable=broad-except
@@ -134,7 +133,7 @@ def create_virtual_environment() -> None:
     try:
         _exe(f"{get_python()} -m venv venv")
     except subprocess.CalledProcessError as exc:
-        warnings.warn(f"couldn't make virtual environment because of {exc}")
+        warnings.warn(f"couldn't make virtual environment because of {exc}", stacklevel=2)
         raise exc
 
 
@@ -144,10 +143,12 @@ def check_platform() -> None:
         if not is_git_bash:
             print("This script only works with git bash on windows.")
             sys.exit(1)
-            
+
+
 def npm_install() -> None:
     _exe("cd www && npm install", HERE)
     _exe("cd www && npm run build", HERE)
+
 
 def convert_windows_path_to_git_bash_path(path: str) -> str:
     # Function to replace the matched drive letter and colon
@@ -180,9 +181,7 @@ def main() -> int:
         return 1
     platform_ensure_python_installed()
     parser = argparse.ArgumentParser(description="Install the project.")
-    parser.add_argument(
-        "--remove", action="store_true", help="Remove the virtual environment"
-    )
+    parser.add_argument("--remove", action="store_true", help="Remove the virtual environment")
     args = parser.parse_args()
     if args.remove:
         print("Removing virtual environment")
@@ -191,18 +190,16 @@ def main() -> int:
     if not os.path.exists("venv"):
         create_virtual_environment()
     else:
-        print(f'{os.path.abspath("venv")} already exists')
+        print(f"{os.path.abspath('venv')} already exists")
     # Is this necessary?
     os.chdir(os.path.abspath(HERE))
     activate_sh = os.path.join(HERE, "activate.sh")
     if not os.path.exists(activate_sh):
-      with open(activate_sh, encoding="utf-8", mode="w") as fd:
-          fd.write(_ACTIVATE_SH)
-      if sys.platform != "win32":
-          _exe(f'chmod +x {activate_sh}')
-      _exe(f'git add {activate_sh} --chmod=+x', check=False)
-
-
+        with open(activate_sh, encoding="utf-8", mode="w") as fd:
+            fd.write(_ACTIVATE_SH)
+        if sys.platform != "win32":
+            _exe(f"chmod +x {activate_sh}")
+        _exe(f"git add {activate_sh} --chmod=+x", check=False)
 
     # Linux/MacOS uses bin and Windows uses Script, so create
     # a soft link in order to always refer to bin for all
@@ -214,7 +211,6 @@ def main() -> int:
         if not os.path.exists(link):
             _exe(f'mklink /J "{link}" "{target}"', check=False)
 
-    
     assert os.path.exists(activate_sh), f"{activate_sh} does not exist"
     npm_install()
     modify_activate_script()
@@ -228,9 +224,7 @@ def main() -> int:
         env = os.environ.copy()
         env["PATH"] = f"{path}{os.pathsep}{env['PATH']}"
         _exe("pip install -e .", env=env)  # Why does this fail on windows git-bash?
-        print(
-            'Now use ". ./activate.sh" (at the project root dir) to enter into the environment.'
-        )
+        print('Now use ". ./activate.sh" (at the project root dir) to enter into the environment.')
         return 0
     except subprocess.CalledProcessError:
         if IS_GITHUB:

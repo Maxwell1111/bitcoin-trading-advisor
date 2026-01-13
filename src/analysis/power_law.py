@@ -1,8 +1,8 @@
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-from typing import Dict
+
 
 class PowerLawModel:
     """
@@ -32,7 +32,7 @@ class PowerLawModel:
         log_price = log_A + N * log_days
         return 10**log_price
 
-    def analyze(self, historical_data: pd.DataFrame) -> Dict:
+    def analyze(self, historical_data: pd.DataFrame) -> dict:
         """
         Analyzes historical price data against the Power Law model.
 
@@ -52,24 +52,25 @@ class PowerLawModel:
         # If index is timezone-aware, make genesis timezone-aware too
         if index.tz is not None:
             import pytz
+
             genesis = pytz.UTC.localize(self.genesis_date)
 
         days_since_genesis = (index - genesis).days.values
 
         # Calculate the three corridor lines
         fair_value_line = self._calculate_bpl_value(days_since_genesis)
-        
+
         # Calculate bands in log space and convert back
         log_fair_value = np.log10(fair_value_line)
         log_resistance = log_fair_value + self.corridor_offset
         log_support = log_fair_value - self.corridor_offset
-        
+
         resistance_line = 10**log_resistance
         support_line = 10**log_support
 
         # Get the latest price and band values
         # Handle both 'Close' and 'close' column names
-        close_col = 'Close' if 'Close' in historical_data.columns else 'close'
+        close_col = "Close" if "Close" in historical_data.columns else "close"
         current_price = historical_data[close_col].iloc[-1]
         current_fair_value = fair_value_line[-1]
         current_support = support_line[-1]
@@ -81,7 +82,7 @@ class PowerLawModel:
             status = "Deep Value"
         elif current_price > current_resistance:
             status = "Bubble Risk"
-        
+
         # Check for mean reversion pressure
         mean_reversion_narrative = ""
         # Using log space for a more stable distance metric
@@ -89,9 +90,8 @@ class PowerLawModel:
         log_fair = np.log10(current_fair_value)
         # If price is more than halfway to a band, suggest mean reversion
         if abs(log_current - log_fair) > self.corridor_offset * 0.5:
-             direction = "down" if log_current > log_fair else "up"
-             mean_reversion_narrative = f"The current price is significantly deviated from the long-term fair value line. A reversion to the mean ({direction}wards) is mathematically probable over the medium term (6-12 months)."
-
+            direction = "down" if log_current > log_fair else "up"
+            mean_reversion_narrative = f"The current price is significantly deviated from the long-term fair value line. A reversion to the mean ({direction}wards) is mathematically probable over the medium term (6-12 months)."
 
         return {
             "status": status,
@@ -101,10 +101,10 @@ class PowerLawModel:
             "resistance_value": current_resistance,
             "mean_reversion_narrative": mean_reversion_narrative,
             "time_series": {
-                "dates": historical_data.index.strftime('%Y-%m-%d').tolist(),
+                "dates": historical_data.index.strftime("%Y-%m-%d").tolist(),
                 "market_price": historical_data[close_col].tolist(),
                 "fair_value_line": fair_value_line.tolist(),
                 "support_line": support_line.tolist(),
                 "resistance_line": resistance_line.tolist(),
-            }
+            },
         }
