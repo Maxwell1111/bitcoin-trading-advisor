@@ -733,41 +733,41 @@
                 </div>
 
                 <!-- Kelly Criterion Rebalance Trigger Panel -->
-                <div id="kellyTriggerPanel" class="card" style="margin: 20px 0; padding: 20px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 2px solid #667eea;">
+                <div id="kellyTriggerPanel" class="card" style="margin: 20px 0; padding: 20px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 2px solid #667eea; color: #ffffff;">
                     <h2 style="color: #667eea; margin: 0 0 20px 0;">Kelly Criterion Rebalance Trigger</h2>
 
                     <!-- Urgency Indicator -->
                     <div id="triggerUrgency" style="text-align: center; padding: 15px; border-radius: 10px; margin-bottom: 20px; background: #2a2a4e;">
-                        <div style="font-size: 0.9em; opacity: 0.7; margin-bottom: 5px;">REBALANCE URGENCY</div>
-                        <div id="urgencyLevel" style="font-size: 2em; font-weight: bold;">--</div>
-                        <div id="shouldRebalance" style="font-size: 1.1em; margin-top: 10px;">--</div>
+                        <div style="font-size: 0.9em; color: rgba(255,255,255,0.7); margin-bottom: 5px;">REBALANCE URGENCY</div>
+                        <div id="urgencyLevel" style="font-size: 2em; font-weight: bold; color: #ffffff;">--</div>
+                        <div id="shouldRebalance" style="font-size: 1.1em; margin-top: 10px; color: #ffffff;">--</div>
                     </div>
 
                     <!-- Current vs Target Allocation -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                         <div style="background: #2a2a4e; padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 0.9em; opacity: 0.7; margin-bottom: 8px;">CURRENT ALLOCATION</div>
+                            <div style="font-size: 0.9em; color: rgba(255,255,255,0.7); margin-bottom: 8px;">CURRENT ALLOCATION</div>
                             <div style="display: flex; justify-content: center; gap: 20px;">
                                 <div>
                                     <div style="color: #f7931a; font-size: 1.5em; font-weight: bold;" id="currentBtcPct">100%</div>
-                                    <div style="font-size: 0.8em; opacity: 0.7;">BTC</div>
+                                    <div style="font-size: 0.8em; color: rgba(255,255,255,0.7);">BTC</div>
                                 </div>
                                 <div>
                                     <div style="color: #ffd700; font-size: 1.5em; font-weight: bold;" id="currentGoldPct">0%</div>
-                                    <div style="font-size: 0.8em; opacity: 0.7;">Gold</div>
+                                    <div style="font-size: 0.8em; color: rgba(255,255,255,0.7);">Gold</div>
                                 </div>
                             </div>
                         </div>
                         <div style="background: #2a2a4e; padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 0.9em; opacity: 0.7; margin-bottom: 8px;">TARGET ALLOCATION (Kelly)</div>
+                            <div style="font-size: 0.9em; color: rgba(255,255,255,0.7); margin-bottom: 8px;">TARGET ALLOCATION (Kelly)</div>
                             <div style="display: flex; justify-content: center; gap: 20px;">
                                 <div>
                                     <div style="color: #f7931a; font-size: 1.5em; font-weight: bold;" id="targetBtcPct">70%</div>
-                                    <div style="font-size: 0.8em; opacity: 0.7;">BTC</div>
+                                    <div style="font-size: 0.8em; color: rgba(255,255,255,0.7);">BTC</div>
                                 </div>
                                 <div>
                                     <div style="color: #ffd700; font-size: 1.5em; font-weight: bold;" id="targetGoldPct">30%</div>
-                                    <div style="font-size: 0.8em; opacity: 0.7;">Gold</div>
+                                    <div style="font-size: 0.8em; color: rgba(255,255,255,0.7);">Gold</div>
                                 </div>
                             </div>
                         </div>
@@ -775,9 +775,9 @@
 
                     <!-- Suggested Action -->
                     <div id="suggestedAction" style="background: linear-gradient(135deg, #667eea40 0%, #764ba240 100%); padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
-                        <div style="font-size: 0.9em; opacity: 0.7; margin-bottom: 8px;">SUGGESTED ACTION</div>
-                        <div id="actionText" style="font-size: 1.3em; font-weight: bold;">Loading...</div>
-                        <div id="newAllocationText" style="font-size: 0.95em; opacity: 0.8; margin-top: 8px;">--</div>
+                        <div style="font-size: 0.9em; color: rgba(255,255,255,0.7); margin-bottom: 8px;">SUGGESTED ACTION</div>
+                        <div id="actionText" style="font-size: 1.3em; font-weight: bold; color: #ffffff;">Loading...</div>
+                        <div id="newAllocationText" style="font-size: 0.95em; color: rgba(255,255,255,0.8); margin-top: 8px;">--</div>
                     </div>
 
                     <!-- Trigger Conditions Checklist -->
@@ -793,7 +793,7 @@
                             <div class="trigger-item" id="trigger_low_correlation"><span class="trigger-status">--</span> Low Correlation</div>
                             <div class="trigger-item" id="trigger_gold_positive_momentum"><span class="trigger-status">--</span> Gold Positive Momentum</div>
                         </div>
-                        <div style="text-align: center; margin-top: 10px; opacity: 0.7; font-size: 0.9em;">
+                        <div style="text-align: center; margin-top: 10px; color: rgba(255,255,255,0.7); font-size: 0.9em;">
                             <span id="activeTriggersCount">0</span>/10 triggers active | Urgency Score: <span id="urgencyScore">0</span>
                         </div>
                     </div>
@@ -801,21 +801,24 @@
                     <!-- Price Targets -->
                     <div>
                         <h3 style="color: #667eea; margin-bottom: 15px; font-size: 1.1em;">BTC Price Targets</h3>
+                        <div style="font-size: 0.75em; color: rgba(255,255,255,0.5); margin-bottom: 8px; text-align: center;">
+                            <span id="priceDataTimestamp">Daily close data</span>
+                        </div>
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
                             <div style="background: #2a2a4e; padding: 12px; border-radius: 8px;">
-                                <div style="font-size: 0.8em; opacity: 0.7;">Current Price</div>
+                                <div style="font-size: 0.8em; color: rgba(255,255,255,0.7);">Current Price</div>
                                 <div style="font-size: 1.2em; color: #f7931a; font-weight: bold;" id="currentPriceTarget">$--</div>
                             </div>
                             <div style="background: #2a2a4e; padding: 12px; border-radius: 8px;">
-                                <div style="font-size: 0.8em; opacity: 0.7;">Consider Rebalance Above</div>
+                                <div style="font-size: 0.8em; color: rgba(255,255,255,0.7);">Consider Rebalance Above</div>
                                 <div style="font-size: 1.2em; color: #4ecdc4; font-weight: bold;" id="considerPrice">$--</div>
                             </div>
                             <div style="background: #2a2a4e; padding: 12px; border-radius: 8px;">
-                                <div style="font-size: 0.8em; opacity: 0.7;">Strong Rebalance Above</div>
+                                <div style="font-size: 0.8em; color: rgba(255,255,255,0.7);">Strong Rebalance Above</div>
                                 <div style="font-size: 1.2em; color: #f39c12; font-weight: bold;" id="strongPrice">$--</div>
                             </div>
                             <div style="background: #2a2a4e; padding: 12px; border-radius: 8px;">
-                                <div style="font-size: 0.8em; opacity: 0.7;">Hold Position Below</div>
+                                <div style="font-size: 0.8em; color: rgba(255,255,255,0.7);">Hold Position Below</div>
                                 <div style="font-size: 1.2em; color: #e74c3c; font-weight: bold;" id="holdPrice">$--</div>
                             </div>
                         </div>
@@ -823,9 +826,9 @@
 
                     <!-- Confidence -->
                     <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #3a3a5e;">
-                        <span style="opacity: 0.7;">Signal Confidence: </span>
-                        <span id="triggerConfidence" style="font-weight: bold;">--%</span>
-                        <span id="triggerConfidenceInterval" style="opacity: 0.7; font-size: 0.9em;">(-- - --%)</span>
+                        <span style="color: rgba(255,255,255,0.7);">Signal Confidence: </span>
+                        <span id="triggerConfidence" style="font-weight: bold; color: #ffffff;">--%</span>
+                        <span id="triggerConfidenceInterval" style="color: rgba(255,255,255,0.7); font-size: 0.9em;">(-- - --%)</span>
                     </div>
                 </div>
                 <style>
@@ -837,6 +840,7 @@
                         display: flex;
                         align-items: center;
                         gap: 8px;
+                        color: #ffffff;
                     }
                     .trigger-status {
                         width: 20px;
@@ -2345,6 +2349,12 @@
                         '$' + (data.price_targets.strong_rebalance_above || 0).toLocaleString();
                     document.getElementById('holdPrice').textContent =
                         '$' + (data.price_targets.hold_below || 0).toLocaleString();
+                }
+
+                // Update timestamp
+                if (data.latest_btc_date) {
+                    document.getElementById('priceDataTimestamp').textContent =
+                        `Price as of ${data.latest_btc_date} (daily close)`;
                 }
 
                 // Update confidence

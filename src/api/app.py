@@ -642,12 +642,16 @@ async def get_rebalance_signal(days: int = 90):
         analyzer = RebalanceAnalyzer()
         result = analyzer.analyze(btc_data, gold_data)
 
-        # Add metadata
+        # Add metadata with timestamp
+        from datetime import datetime
+
         result["days_analyzed"] = days
         result["cached"] = False
+        result["latest_btc_date"] = btc_data.index[-1].strftime("%Y-%m-%d")
+        result["data_fetched_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
-        # Cache for 5 minutes
-        cache.set(cache_key, result, ttl=300)
+        # Cache for 30 seconds for fresher data
+        cache.set(cache_key, result, ttl=30)
 
         return result
 
@@ -788,12 +792,16 @@ async def get_rebalance_trigger_signal(
             target_gold_pct=target_gold_pct,
         )
 
-        # Add metadata
+        # Add metadata with timestamp
+        from datetime import datetime
+
         result["days_analyzed"] = days
         result["cached"] = False
+        result["latest_btc_date"] = btc_data.index[-1].strftime("%Y-%m-%d")
+        result["data_fetched_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
-        # Cache for 2 minutes
-        cache.set(cache_key, result, ttl=120)
+        # Cache for 30 seconds for fresher data
+        cache.set(cache_key, result, ttl=30)
 
         return result
 
