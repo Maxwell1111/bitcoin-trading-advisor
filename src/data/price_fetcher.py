@@ -184,6 +184,19 @@ class PriceFetcher:
             except Exception as e:
                 raise Exception(f"Error fetching current price: {e}")
 
+        elif self.provider == "binance":
+            # Get real-time price from Binance ticker API
+            url = "https://api.binance.com/api/v3/ticker/price"
+            params = {"symbol": "BTCUSDT"}
+
+            try:
+                response = requests.get(url, params=params, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                return float(data["price"])
+            except Exception as e:
+                raise Exception(f"Error fetching current price from Binance: {e}")
+
         else:
             # Get latest price from historical data
             df = self.fetch_historical_data(days=1)

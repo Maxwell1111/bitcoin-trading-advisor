@@ -2271,18 +2271,32 @@
                 const targetBtcPct = 70.0;
                 const targetGoldPct = 30.0;
 
-                const response = await fetch(
-                    `/api/rebalance/signal?days=90&current_btc_pct=${currentBtcPct}&current_gold_pct=${currentGoldPct}&target_btc_pct=${targetBtcPct}&target_gold_pct=${targetGoldPct}`
-                );
+                // Fetch current live price and rebalance signal in parallel
+                const [priceResponse, signalResponse] = await Promise.all([
+                    fetch('/api/price'),
+                    fetch(`/api/rebalance/signal?days=90&current_btc_pct=${currentBtcPct}&current_gold_pct=${currentGoldPct}&target_btc_pct=${targetBtcPct}&target_gold_pct=${targetGoldPct}`)
+                ]);
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                if (!signalResponse.ok) {
+                    throw new Error(`HTTP ${signalResponse.status}: ${signalResponse.statusText}`);
                 }
 
-                const data = await response.json();
+                const data = await signalResponse.json();
+                const priceData = priceResponse.ok ? await priceResponse.json() : null;
 
                 if (data.error) {
                     throw new Error(data.error);
+                }
+
+                // Use live price if available, otherwise use historical close
+                const currentLivePrice = priceData?.price || data.price_targets?.current_price;
+
+                // Recalculate price targets based on current live price
+                if (currentLivePrice && data.price_targets) {
+                    data.price_targets.current_price = currentLivePrice;
+                    data.price_targets.consider_rebalance_above = Math.round(currentLivePrice * 1.05 * 100) / 100;
+                    data.price_targets.strong_rebalance_above = Math.round(currentLivePrice * 1.10 * 100) / 100;
+                    data.price_targets.hold_below = Math.round(currentLivePrice * 0.95 * 100) / 100;
                 }
 
                 // Update urgency level
@@ -2352,7 +2366,17 @@
                 }
 
                 // Update timestamp
-                if (data.latest_btc_date) {
+                if (priceData?.price) {
+                    const now = new Date().toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                    document.getElementById('priceDataTimestamp').textContent =
+                        `Live price updated ${now}`;
+                } else if (data.latest_btc_date) {
                     document.getElementById('priceDataTimestamp').textContent =
                         `Price as of ${data.latest_btc_date} (daily close)`;
                 }
@@ -2421,6 +2445,14 @@
 
         // Refresh sparkline every 30 seconds
         setInterval(loadPriceSparkline, 30000);
+
+        // Refresh rebalancing data every 60 seconds if on rebalance tab
+        setInterval(() => {
+            const rebalanceTab = document.getElementById('rebalanceTab');
+            if (rebalanceTab && rebalanceTab.style.display !== 'none') {
+                loadKellyCriterionData();
+            }
+        }, 60000);
     </script>
 </body>
 </html>
