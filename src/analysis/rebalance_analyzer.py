@@ -538,21 +538,23 @@ class RebalanceAnalyzer:
 
         # === TRIGGER CONDITIONS ===
         triggers = {
-            "rsi_overbought": btc["rsi"] > 70,
-            "rsi_extreme_overbought": btc["rsi"] > 80,
-            "volatility_elevated": btc["volatility"] > 50,
-            "volatility_extreme": btc["volatility"] > 70,
-            "at_upper_bollinger": btc["bb_position"] == "above_upper",
-            "gold_outperforming": analysis["relative_strength"]["trend"] == "gold_outperforming",
-            "negative_momentum": btc_momentum in ["bearish", "strong_bearish"],
-            "gold_positive_momentum": gold_momentum in ["bullish", "strong_bullish"],
-            "low_correlation": correlation < 0.3,  # Good diversification opportunity
-            "macd_bearish": btc["macd_histogram"] < 0,
+            "rsi_overbought": bool(btc["rsi"] > 70),
+            "rsi_extreme_overbought": bool(btc["rsi"] > 80),
+            "volatility_elevated": bool(btc["volatility"] > 50),
+            "volatility_extreme": bool(btc["volatility"] > 70),
+            "at_upper_bollinger": bool(btc["bb_position"] == "above_upper"),
+            "gold_outperforming": bool(
+                analysis["relative_strength"]["trend"] == "gold_outperforming"
+            ),
+            "negative_momentum": bool(btc_momentum in ["bearish", "strong_bearish"]),
+            "gold_positive_momentum": bool(gold_momentum in ["bullish", "strong_bullish"]),
+            "low_correlation": bool(correlation < 0.3),  # Good diversification opportunity
+            "macd_bearish": bool(btc["macd_histogram"] < 0),
         }
 
         # Count how many triggers are active
-        active_triggers = sum(triggers.values())
-        total_triggers = len(triggers)
+        active_triggers = int(sum(triggers.values()))
+        total_triggers = int(len(triggers))
 
         # === URGENCY CALCULATION ===
         urgency_score = 0

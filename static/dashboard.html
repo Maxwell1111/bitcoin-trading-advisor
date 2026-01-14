@@ -1180,6 +1180,7 @@
             if (tabName === 'rebalance') {
                 loadRebalanceData();
                 loadRebalanceChart(rebalanceTimeframe);
+                loadKellyCriterionData();
             }
         }
 
@@ -2028,8 +2029,34 @@
 
             } catch (error) {
                 console.error('Error loading rebalance data:', error);
-                document.getElementById('rebalanceRecommendation').textContent = 'Error loading signal';
+                showRebalanceError(error.message);
             }
+        }
+
+        function showRebalanceError(errorMessage) {
+            const mainSection = document.querySelector('.rebalance-main');
+            const errorHtml = `
+                <div style="text-align: center; padding: 40px; color: white;">
+                    <div style="font-size: 3em; margin-bottom: 20px;">⚠️</div>
+                    <h3 style="color: #e74c3c; margin-bottom: 15px;">Unable to Load Rebalance Data</h3>
+                    <p style="opacity: 0.8; margin-bottom: 20px;">${errorMessage}</p>
+                    <button onclick="retryRebalanceLoad()" style="
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        border: none;
+                        color: white;
+                        padding: 12px 24px;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        cursor: pointer;
+                        transition: transform 0.2s;
+                    ">🔄 Retry</button>
+                </div>
+            `;
+            mainSection.innerHTML = errorHtml;
+        }
+
+        function retryRebalanceLoad() {
+            location.reload();
         }
 
         // Format recommendation text
@@ -2227,6 +2254,150 @@
                     }
                 }
             });
+        }
+
+        // ===== KELLY CRITERION TRIGGER FUNCTIONS =====
+
+        // Load Kelly Criterion rebalance trigger data
+        async function loadKellyCriterionData() {
+            try {
+                // Default portfolio: 100% BTC, 0% Gold
+                const currentBtcPct = 100.0;
+                const currentGoldPct = 0.0;
+                const targetBtcPct = 70.0;
+                const targetGoldPct = 30.0;
+
+                const response = await fetch(
+                    `/api/rebalance/signal?days=90&current_btc_pct=${currentBtcPct}&current_gold_pct=${currentGoldPct}&target_btc_pct=${targetBtcPct}&target_gold_pct=${targetGoldPct}`
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Update urgency level
+                const urgencyMap = {
+                    'low': { text: '🟢 LOW', color: '#4ecdc4' },
+                    'medium': { text: '🟡 MEDIUM', color: '#f39c12' },
+                    'moderate': { text: '🟡 MODERATE', color: '#f39c12' },
+                    'high': { text: '🔴 HIGH', color: '#e74c3c' },
+                    'urgent': { text: '🚨 URGENT', color: '#c0392b' },
+                    'none': { text: '⚪ NONE', color: '#95a5a6' }
+                };
+                const urgency = urgencyMap[data.urgency] || { text: '--', color: '#667eea' };
+                document.getElementById('urgencyLevel').textContent = urgency.text;
+                document.getElementById('urgencyLevel').style.color = urgency.color;
+
+                // Update should rebalance text
+                document.getElementById('shouldRebalance').textContent = data.should_rebalance_now
+                    ? '✅ Rebalancing Recommended'
+                    : '⏸️ Hold Current Allocation';
+
+                // Update current allocation display
+                document.getElementById('currentBtcPct').textContent = Math.round(currentBtcPct) + '%';
+                document.getElementById('currentGoldPct').textContent = Math.round(currentGoldPct) + '%';
+
+                // Update target allocation display
+                document.getElementById('targetBtcPct').textContent = Math.round(targetBtcPct) + '%';
+                document.getElementById('targetGoldPct').textContent = Math.round(targetGoldPct) + '%';
+
+                // Update suggested action
+                document.getElementById('actionText').textContent = data.suggested_action?.action || 'Hold current allocation';
+                if (data.suggested_action && data.suggested_action.new_btc_pct !== undefined) {
+                    document.getElementById('newAllocationText').textContent =
+                        `Move to: ${Math.round(data.suggested_action.new_btc_pct)}% BTC / ${Math.round(data.suggested_action.new_gold_pct)}% Gold`;
+                } else {
+                    document.getElementById('newAllocationText').textContent = '--';
+                }
+
+                // Update trigger checklist
+                const triggers = data.trigger_conditions || {};
+                updateTriggerItem('trigger_rsi_overbought', triggers.rsi_overbought);
+                updateTriggerItem('trigger_volatility_elevated', triggers.volatility_elevated);
+                updateTriggerItem('trigger_at_upper_bollinger', triggers.at_upper_bollinger);
+                updateTriggerItem('trigger_gold_outperforming', triggers.gold_outperforming);
+                updateTriggerItem('trigger_negative_momentum', triggers.negative_momentum);
+                updateTriggerItem('trigger_macd_bearish', triggers.macd_bearish);
+                updateTriggerItem('trigger_low_correlation', triggers.low_correlation);
+                updateTriggerItem('trigger_gold_positive_momentum', triggers.gold_positive_momentum);
+
+                // Update trigger counts
+                const activeTriggers = Object.values(triggers).filter(t => t === true).length;
+                const totalTriggers = Object.keys(triggers).length;
+                document.getElementById('activeTriggersCount').textContent = activeTriggers;
+                document.getElementById('urgencyScore').textContent = data.urgency_score || 0;
+
+                // Update price targets
+                if (data.price_targets && data.price_targets.current_price) {
+                    document.getElementById('currentPriceTarget').textContent =
+                        '$' + data.price_targets.current_price.toLocaleString();
+                }
+                if (data.price_targets) {
+                    document.getElementById('considerPrice').textContent =
+                        '$' + (data.price_targets.consider_rebalance_above || 0).toLocaleString();
+                    document.getElementById('strongPrice').textContent =
+                        '$' + (data.price_targets.strong_rebalance_above || 0).toLocaleString();
+                    document.getElementById('holdPrice').textContent =
+                        '$' + (data.price_targets.hold_below || 0).toLocaleString();
+                }
+
+                // Update confidence
+                document.getElementById('triggerConfidence').textContent =
+                    Math.round((data.confidence || 0) * 100) + '%';
+                if (data.confidence_interval) {
+                    document.getElementById('triggerConfidenceInterval').textContent =
+                        `(${Math.round(data.confidence_interval.lower * 100)}% - ${Math.round(data.confidence_interval.upper * 100)}%)`;
+                }
+
+            } catch (error) {
+                console.error('Error loading Kelly Criterion data:', error);
+                showKellyError(error.message);
+            }
+        }
+
+        // Update individual trigger item display
+        function updateTriggerItem(elementId, isActive) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            const statusSpan = element.querySelector('.trigger-status');
+            if (isActive) {
+                statusSpan.textContent = '✓';
+                statusSpan.style.background = '#4ecdc4';
+                statusSpan.style.color = 'white';
+            } else {
+                statusSpan.textContent = '✗';
+                statusSpan.style.background = '#34495e';
+                statusSpan.style.color = '#7f8c8d';
+            }
+        }
+
+        // Show Kelly Criterion error with retry button
+        function showKellyError(errorMessage) {
+            const kellyPanel = document.getElementById('kellyTriggerPanel');
+            const errorHtml = `
+                <div style="text-align: center; padding: 40px; color: white;">
+                    <div style="font-size: 3em; margin-bottom: 20px;">⚠️</div>
+                    <h3 style="color: #e74c3c; margin-bottom: 15px;">Unable to Load Kelly Criterion Data</h3>
+                    <p style="opacity: 0.8; margin-bottom: 20px;">${errorMessage || 'An error occurred while fetching data.'}</p>
+                    <button onclick="retryKellyLoad()" style="padding: 12px 30px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1em; font-weight: 600;">
+                        🔄 Retry
+                    </button>
+                </div>
+            `;
+            kellyPanel.innerHTML = errorHtml;
+        }
+
+        // Retry loading Kelly data
+        function retryKellyLoad() {
+            // Restore original panel content
+            location.reload(); // Simple approach: reload the page
         }
 
         // Initialize on page load
