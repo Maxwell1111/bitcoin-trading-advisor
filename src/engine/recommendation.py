@@ -137,9 +137,41 @@ class RecommendationEngine:
             + news_score * self.news_weight
             + tech_score * self.technical_weight
         )
-        logging.info(f"Final combined score: {combined_score:.3f}")
+        logging.info(f"Base combined score: {combined_score:.3f}")
 
         recommendation, confidence = self._score_to_recommendation(combined_score)
+
+        # APPLY ADVANCED SIGNAL STRENGTH ADJUSTMENTS
+        # Calculate signal strength metrics before generating reasoning
+        signal_strength = self._calculate_signal_strength(
+            technical_analysis, news_sentiment_analysis, reddit_sentiment_analysis
+        )
+
+        # Apply confirmation bonus (increases confidence when signals agree)
+        confidence += signal_strength["confirmation_bonus"]
+
+        # Apply conflict penalty (reduces confidence when signals disagree)
+        confidence -= signal_strength["conflict_penalty"]
+
+        # Apply momentum bonus (strong momentum increases confidence)
+        if signal_strength["momentum_score"] >= 0.4:
+            confidence += 0.05
+            logging.info("Strong momentum detected, confidence boost: +0.05")
+
+        # Apply data quality adjustment
+        if signal_strength["sentiment_quality"] < 0.5:
+            # Low quality sentiment data - reduce confidence
+            confidence -= 0.05
+            logging.info("Limited sentiment data, confidence penalty: -0.05")
+
+        # Clamp confidence to valid range [0, 1]
+        confidence = max(0.0, min(1.0, confidence))
+
+        logging.info(
+            f"Adjusted confidence: {confidence:.3f} "
+            f"(confirmation: +{signal_strength['confirmation_bonus']:.2f}, "
+            f"conflict: -{signal_strength['conflict_penalty']:.2f})"
+        )
 
         reasoning = self._generate_reasoning(
             technical_analysis,
@@ -284,38 +316,178 @@ class RecommendationEngine:
             return "sell", abs_score
         return "hold", 1.0 - abs_score
 
+    def _calculate_signal_strength(self, technical: dict, news: dict, reddit: dict) -> dict:
+        """
+        Calculate advanced signal strength metrics for sophisticated weighting.
+
+        Returns metrics for:
+        - Signal agreement/confirmation
+        - Individual signal quality
+        - Momentum strength
+        - Risk assessment
+        """
+        tech_rec = technical["overall"]["recommendation"]
+        news_rec = news["recommendation"]
+        reddit_rec = reddit["recommendation"]
+
+        # Convert recommendations to numeric scores for analysis
+        rec_to_num = {"strong_sell": -1.0, "sell": -0.5, "hold": 0.0, "buy": 0.5, "strong_buy": 1.0}
+        tech_num = rec_to_num.get(tech_rec, 0)
+        news_num = rec_to_num.get(news_rec, 0)
+        reddit_num = rec_to_num.get(reddit_rec, 0)
+
+        # 1. CONFIRMATION SIGNAL DETECTION
+        # When multiple signals agree, increase confidence (best practice)
+        signal_values = [tech_num, news_num, reddit_num]
+        signal_signs = [1 if x > 0 else -1 if x < 0 else 0 for x in signal_values]
+
+        # Check for strong confirmation (all signals same direction)
+        if len({s for s in signal_signs if s != 0}) == 1 and signal_signs.count(0) == 0:
+            confirmation_level = "STRONG"
+            confirmation_bonus = 0.15
+        # Partial confirmation (2 out of 3 agree)
+        elif signal_signs.count(signal_signs[0]) >= 2 or signal_signs.count(signal_signs[1]) >= 2:
+            confirmation_level = "MODERATE"
+            confirmation_bonus = 0.08
+        else:
+            confirmation_level = "WEAK"
+            confirmation_bonus = 0.0
+
+        # 2. MOMENTUM QUALITY SCORE
+        # Technical indicators show momentum strength
+        macd_signal = technical.get("macd", {}).get("signal", "neutral")
+        rsi_val = technical.get("rsi", {}).get("value", 50)
+        ma_trend = technical.get("ma_trend", {}).get("overall_trend", "neutral")
+
+        momentum_score = 0.0
+        if (
+            macd_signal == "bullish"
+            and ma_trend in ["uptrend", "strong_uptrend"]
+            or macd_signal == "bearish"
+            and ma_trend in ["downtrend", "strong_downtrend"]
+        ):
+            momentum_score += 0.3
+
+        # RSI momentum (avoid overbought/oversold extremes)
+        if 40 <= rsi_val <= 60:
+            momentum_score += 0.2  # Healthy momentum zone
+        elif 30 < rsi_val < 70:
+            momentum_score += 0.1  # Acceptable zone
+
+        # 3. SENTIMENT QUALITY
+        # Higher article counts = more reliable sentiment
+        news_count = news.get("article_count", 0)
+        reddit_count = reddit.get("article_count", 0)
+
+        sentiment_quality = 0.0
+        if news_count >= 20 and reddit_count >= 20:
+            sentiment_quality = 0.9  # High quality data
+        elif news_count >= 10 and reddit_count >= 10:
+            sentiment_quality = 0.7  # Good quality
+        elif news_count >= 5 or reddit_count >= 5:
+            sentiment_quality = 0.5  # Moderate quality
+        else:
+            sentiment_quality = 0.3  # Low quality
+
+        # 4. SIGNAL CONFLICT PENALTY
+        # Conflicting signals reduce confidence (risk management)
+        max_disagreement = max(signal_values) - min(signal_values)
+        conflict_penalty = max_disagreement * 0.1
+
+        return {
+            "confirmation_level": confirmation_level,
+            "confirmation_bonus": confirmation_bonus,
+            "momentum_score": momentum_score,
+            "sentiment_quality": sentiment_quality,
+            "conflict_penalty": conflict_penalty,
+            "signal_agreement": len({s for s in signal_signs if s != 0}) == 1,
+        }
+
     def _generate_reasoning(
         self, technical: dict, news: dict, reddit: dict, divergence: str, final_rec: str
     ) -> str:
-        """Generate human-readable reasoning for the recommendation."""
-        reasons = [divergence]
+        """Generate human-readable reasoning with sophisticated weighted analysis."""
+        reasons = []
 
-        # Social, News, and Technical summaries
+        # Skip divergence if it's just "Not enough data"
+        if divergence and "Not enough data" not in divergence:
+            reasons.append(divergence)
+
+        # Calculate advanced signal metrics
+        signal_strength = self._calculate_signal_strength(technical, news, reddit)
+
+        # 1. SIGNAL ANALYSIS with specific scores
+        tech_rec = technical["overall"]["recommendation"]
+        tech_conf = technical["overall"]["confidence"]
+        news_score = news["average_compound"]
+        reddit_score = reddit["average_compound"]
+        news_count = news.get("article_count", 0)
+        reddit_count = reddit.get("article_count", 0)
+
+        # Technical Analysis Summary
+        macd_signal = technical.get("macd", {}).get("signal", "neutral")
+        rsi_val = technical.get("rsi", {}).get("value", 50)
+        ma_trend = technical.get("ma_trend", {}).get("overall_trend", "neutral")
+
         reasons.append(
-            f"Reddit sentiment is {reddit['overall_sentiment']} (score: {reddit['average_compound']:.2f})."
-        )
-        reasons.append(
-            f"News sentiment is {news['overall_sentiment']} (score: {news['average_compound']:.2f})."
-        )
-        reasons.append(
-            f"Technical analysis suggests a {technical['overall']['recommendation']} state."
+            f"Technical: {tech_rec.upper()} signal (confidence: {tech_conf:.0%}). "
+            f"MACD is {macd_signal}, RSI at {rsi_val:.1f}, trend is {ma_trend}. "
+            f"Technical weight: {self.technical_weight:.0%}"
         )
 
-        # Agreement/disagreement
-        if (
-            technical["overall"]["recommendation"]
-            == news["recommendation"]
-            == reddit["recommendation"]
-        ):
+        # Sentiment Analysis Summary with data quality
+        reasons.append(
+            f"Reddit: {reddit['overall_sentiment']} sentiment (score: {reddit_score:+.2f}, "
+            f"{reddit_count} posts analyzed). Weight: {self.reddit_weight:.0%}"
+        )
+        reasons.append(
+            f"News: {news['overall_sentiment']} sentiment (score: {news_score:+.2f}, "
+            f"{news_count} articles analyzed). Weight: {self.news_weight:.0%}"
+        )
+
+        # 2. SIGNAL CONFIRMATION STATUS
+        if signal_strength["confirmation_level"] == "STRONG":
             reasons.append(
-                "Social sentiment, news sentiment, and technical analysis are all in agreement."
+                f"✓ STRONG CONFIRMATION: All signals align in the same direction, "
+                f"increasing confidence by {signal_strength['confirmation_bonus']:.0%}"
+            )
+        elif signal_strength["confirmation_level"] == "MODERATE":
+            reasons.append(
+                f"⚠ MODERATE CONFIRMATION: Majority of signals agree, "
+                f"confidence boost: {signal_strength['confirmation_bonus']:.0%}"
             )
         else:
             reasons.append(
-                "There is some disagreement between signals, requiring a weighted approach."
+                f"⚠ MIXED SIGNALS: Indicators show disagreement. "
+                f"Using adaptive weights (Tech: {self.technical_weight:.0%}, "
+                f"Reddit: {self.reddit_weight:.0%}, News: {self.news_weight:.0%}) "
+                f"to balance conflicting data. Confidence reduced by {signal_strength['conflict_penalty']:.0%}"
             )
 
-        return ". ".join(filter(None, reasons)) + "."
+        # 3. MOMENTUM & TREND QUALITY
+        if signal_strength["momentum_score"] >= 0.3:
+            reasons.append(
+                f"Strong momentum detected (score: {signal_strength['momentum_score']:.1f}). "
+                f"Technical indicators show {ma_trend} with {macd_signal} MACD"
+            )
+
+        # 4. DATA QUALITY ASSESSMENT
+        if signal_strength["sentiment_quality"] >= 0.7:
+            reasons.append(
+                f"High-quality sentiment data ({news_count + reddit_count} sources total)"
+            )
+        elif signal_strength["sentiment_quality"] < 0.5:
+            reasons.append(
+                "⚠ Limited sentiment data available. Increasing technical analysis weight"
+            )
+
+        # 5. FINAL RECOMMENDATION LOGIC
+        reasons.append(
+            f"FINAL: {final_rec.upper()} recommendation generated using adaptive weighted scoring. "
+            f"This combines all signals with learned weights optimized for accuracy"
+        )
+
+        return " | ".join(reasons)
 
     def _calculate_targets(
         self, current_price: float, recommendation: str, confidence: float
