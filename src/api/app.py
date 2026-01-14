@@ -1001,7 +1001,7 @@ async def get_adaptive_stats():
     try:
         from datetime import datetime, timedelta
 
-        from src.database.models import AccuracyAggregate, Recommendation, WeightHistory
+        from src.database.models import Recommendation, WeightHistory
         from src.database.session import get_db_session
 
         # Get database session
@@ -1034,15 +1034,10 @@ async def get_adaptive_stats():
             weight_evolution["phases"] = phases
 
             # 2. Accuracy Metrics by Recommendation Type
-            # Get accuracy aggregates for the last 30 days
+            # Calculate accuracy from actual recommendations and validations
             thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-            accuracy_data = (
-                db.query(AccuracyAggregate)
-                .filter(AccuracyAggregate.period_end >= thirty_days_ago)
-                .all()
-            )
 
-            # Group by recommendation type
+            # Initialize accuracy by type
             accuracy_by_type = {
                 "buy": {"correct": 0, "total": 0, "rate": 0.0},
                 "sell": {"correct": 0, "total": 0, "rate": 0.0},
@@ -1051,10 +1046,30 @@ async def get_adaptive_stats():
                 "strong_sell": {"correct": 0, "total": 0, "rate": 0.0},
             }
 
-            for agg in accuracy_data:
-                if agg.recommendation_type in accuracy_by_type:
-                    accuracy_by_type[agg.recommendation_type]["correct"] += agg.correct_count
-                    accuracy_by_type[agg.recommendation_type]["total"] += agg.total_count
+            # Get recent recommendations with their validations
+            from src.database.models import ValidationResult
+
+            recent_recs = (
+                db.query(Recommendation).filter(Recommendation.timestamp >= thirty_days_ago).all()
+            )
+
+            # Calculate accuracy from validation results
+            for rec in recent_recs:
+                rec_type = rec.recommendation
+                if rec_type in accuracy_by_type:
+                    # Get validation results for this recommendation
+                    validations = (
+                        db.query(ValidationResult)
+                        .filter(ValidationResult.recommendation_id == rec.id)
+                        .all()
+                    )
+
+                    if validations:
+                        # Count successful validations
+                        for val in validations:
+                            accuracy_by_type[rec_type]["total"] += 1
+                            if val.outcome == "success":
+                                accuracy_by_type[rec_type]["correct"] += 1
 
             # Calculate rates
             for rec_type in accuracy_by_type:
@@ -1100,6 +1115,10 @@ async def get_adaptive_stats():
             current_weights = weight_manager.get_current_weights()
             current_config = weight_manager.get_weight_config()
 
+            # Get days_of_data from the latest WeightHistory record
+            latest_weight_history = weight_history[-1] if weight_history else None
+            days_of_data = latest_weight_history.days_of_data if latest_weight_history else 0
+
             system_status = {
                 "current_weights": {
                     "technical": round(current_weights["technical_weight"], 3),
@@ -1109,7 +1128,7 @@ async def get_adaptive_stats():
                 "last_optimization": (
                     current_config.last_updated.isoformat() if current_config else None
                 ),
-                "days_of_data": current_config.days_of_data if current_config else 0,
+                "days_of_data": days_of_data,
                 "bayesian_phase": phases[-1] if phases else "Unknown",
             }
 
