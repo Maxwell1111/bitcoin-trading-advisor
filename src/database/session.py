@@ -2,9 +2,11 @@
 Database session management and initialization
 
 Uses scoped_session for thread-safe session handling in FastAPI
+Supports both SQLite (local development) and PostgreSQL (production)
 """
 
 import logging
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -15,10 +17,24 @@ from .models import Base, WeightHistory
 
 logger = logging.getLogger(__name__)
 
-# Database configuration
-DATABASE_DIR = Path(__file__).parent.parent.parent / "data"
-DATABASE_PATH = DATABASE_DIR / "advisor.db"
-DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+# Database configuration - use PostgreSQL if DATABASE_URL env var exists, otherwise SQLite
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+if DATABASE_URL:
+    # PostgreSQL (production on Render)
+    # Render provides postgres:// but SQLAlchemy 1.4+ requires postgresql://
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+    IS_POSTGRES = True
+    logger.info("Using PostgreSQL database (production)")
+else:
+    # SQLite (local development)
+    DATABASE_DIR = Path(__file__).parent.parent.parent / "data"
+    DATABASE_PATH = DATABASE_DIR / "advisor.db"
+    DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+    IS_POSTGRES = False
+    logger.info(f"Using SQLite database (development): {DATABASE_PATH}")
 
 # Global engine and session factory
 _engine = None
@@ -30,18 +46,30 @@ def get_engine():
     global _engine
 
     if _engine is None:
-        # Ensure data directory exists
-        DATABASE_DIR.mkdir(parents=True, exist_ok=True)
+        if IS_POSTGRES:
+            # PostgreSQL configuration
+            _engine = create_engine(
+                DATABASE_URL,
+                pool_size=5,
+                max_overflow=10,
+                pool_pre_ping=True,  # Verify connections before using
+                echo=False,  # Set to True for SQL debugging
+            )
+            logger.info("PostgreSQL engine created")
+        else:
+            # SQLite configuration
+            # Ensure data directory exists
+            DATABASE_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Create engine with appropriate settings for SQLite
-        _engine = create_engine(
-            DATABASE_URL,
-            connect_args={"check_same_thread": False},  # Needed for SQLite with multiple threads
-            poolclass=StaticPool,  # Use static pool for SQLite
-            echo=False,  # Set to True for SQL debugging
-        )
-
-        logger.info(f"Database engine created: {DATABASE_PATH}")
+            _engine = create_engine(
+                DATABASE_URL,
+                connect_args={
+                    "check_same_thread": False
+                },  # Needed for SQLite with multiple threads
+                poolclass=StaticPool,  # Use static pool for SQLite
+                echo=False,  # Set to True for SQL debugging
+            )
+            logger.info(f"SQLite engine created: {DATABASE_PATH}")
 
     return _engine
 
@@ -70,8 +98,8 @@ def get_db_session():
 
     The session will automatically close when exiting the context
     """
-    Session = get_session_factory()
-    return Session()
+    session_factory = get_session_factory()
+    return session_factory()
 
 
 def init_database(drop_existing=False):
@@ -105,8 +133,8 @@ def init_database(drop_existing=False):
                 raise
 
         # Check if we need to initialize default weights
-        Session = get_session_factory()
-        with Session() as session:
+        session_factory = get_session_factory()
+        with session_factory() as session:
             weight_count = session.query(WeightHistory).count()
 
             if weight_count == 0:

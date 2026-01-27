@@ -46,5 +46,6 @@ pydantic>=2.5.0
 python-multipart>=0.0.6
 
 # Database and adaptive system
-sqlalchemy>=2.0.0  # ORM for SQLite database
+sqlalchemy>=2.0.0  # ORM for database (SQLite locally, PostgreSQL in production)
+psycopg2-binary>=2.9.9  # PostgreSQL adapter for production
 scipy>=1.11.0  # Statistical functions for Sharpe ratio calculations

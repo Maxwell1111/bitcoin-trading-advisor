@@ -1,94 +1,170 @@
 # Deployment Guide
 
-## Render.com Deployment
+## PostgreSQL Migration for Render.com
 
-### Database Persistence Issue
+### Why PostgreSQL?
 
-**Important:** Render's free tier uses **ephemeral file systems**. This means:
-- The SQLite database (`data/advisor.db`) is **not persisted** across deployments
-- All recommendations, validations, and weight history are **lost** when you redeploy
-- The database starts fresh/empty on each deployment
+Render's free tier uses **ephemeral file systems**, meaning SQLite databases are **lost on every deployment**. Your adaptive learning system needs persistent storage to:
+- Accumulate recommendations over time
+- Learn from historical performance
+- Show meaningful weight evolution trends
+- Reach 30+ recommendations for full metrics
 
-### Solution: Migrate to PostgreSQL
-
-For production use with data persistence, you should migrate to PostgreSQL:
-
-#### 1. Create PostgreSQL Database on Render
-
-1. Go to Render Dashboard → New → PostgreSQL
-2. Create a free PostgreSQL database
-3. Note the **Internal Database URL** provided
-
-#### 2. Install PostgreSQL Dependencies
-
-Add to `requirements.txt`:
-```
-psycopg2-binary==2.9.9
-```
-
-#### 3. Update Database Configuration
-
-Modify `src/database/session.py` to support PostgreSQL:
-
-```python
-import os
-
-# Use PostgreSQL if DATABASE_URL environment variable is set, otherwise SQLite
-DATABASE_URL = os.environ.get('DATABASE_URL')
-
-if DATABASE_URL:
-    # PostgreSQL (production)
-    logger.info(f"Using PostgreSQL database")
-else:
-    # SQLite (local development)
-    DATABASE_DIR = Path(__file__).parent.parent.parent / "data"
-    DATABASE_PATH = DATABASE_DIR / "advisor.db"
-    DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
-    logger.info(f"Using SQLite database: {DATABASE_PATH}")
-```
-
-#### 4. Set Environment Variable on Render
-
-1. Go to your service on Render
-2. Environment → Add Environment Variable
-3. Key: `DATABASE_URL`
-4. Value: Your PostgreSQL Internal Database URL from step 1
-
-#### 5. Deploy
-
-Commit and push changes. Render will automatically deploy with the PostgreSQL database, and your data will persist across deployments.
+**Solution:** Use PostgreSQL for persistent storage on Render.
 
 ---
 
-## Current Workaround (Without PostgreSQL)
+## Step-by-Step Migration Guide
 
-If you want to continue using SQLite on Render's free tier:
+### Step 1: Create PostgreSQL Database on Render
 
-1. **Accept data loss** on each deployment
-2. **Generate recommendations** after each deployment to populate the database:
+1. **Login to Render Dashboard**
+   - Go to https://dashboard.render.com
+
+2. **Create New PostgreSQL Database**
+   - Click **"New +"** in top right
+   - Select **"PostgreSQL"**
+   - Fill in details:
+     - **Name:** `bitcoin-advisor-db` (or your preferred name)
+     - **Database:** Leave default or use `advisor`
+     - **User:** Leave default or use `advisor`
+     - **Region:** Same as your web service (for best performance)
+     - **PostgreSQL Version:** 16 (latest)
+     - **Plan:** Free
+   - Click **"Create Database"**
+
+3. **Get Database URL**
+   - Wait for database to be created (~1-2 minutes)
+   - On the database page, find **"Internal Database URL"**
+   - Copy this URL (looks like: `postgresql://user:pass@dpg-xxxxx/dbname`)
+   - **Important:** Use the **Internal** URL, not External (faster and free)
+
+### Step 2: Set Environment Variable on Your Web Service
+
+1. **Go to Your Web Service**
+   - In Render Dashboard, click on your web service (bitcoin-trading-advisor)
+
+2. **Add Environment Variable**
+   - Click **"Environment"** in left sidebar
+   - Click **"Add Environment Variable"**
+   - Add:
+     - **Key:** `DATABASE_URL`
+     - **Value:** Paste the Internal Database URL from Step 1
+   - Click **"Save Changes"**
+
+### Step 3: Deploy Updated Code
+
+The code has already been updated to support PostgreSQL. Just deploy:
+
+1. **Trigger Deployment**
+   - Render will auto-deploy when you push to GitHub
+   - Or click **"Manual Deploy"** → **"Deploy latest commit"**
+
+2. **Monitor Deployment**
+   - Watch the deployment logs
+   - Look for: `"Using PostgreSQL database (production)"`
+   - Wait for: `"Deploy live"`
+
+### Step 4: Verify Migration
+
+Once deployed, check that it's working:
+
+1. **Generate a Test Recommendation**
    ```bash
-   curl -X POST https://your-app.onrender.com/api/recommendation \
+   curl -X POST https://bitcoin-trading-advisor.onrender.com/api/recommendation \
      -H "Content-Type: application/json" \
      -d '{"days": 100, "news_days": 7}'
    ```
-3. The system will work during runtime, but will reset on redeploy
+
+2. **Check Database**
+   - Refresh your dashboard: https://bitcoin-trading-advisor.onrender.com/dashboard
+   - Should show **"System is in learning phase (1/30 recommendations)"**
+   - Generate a few more recommendations
+   - Count should increase and **persist** even after redeployment
+
+3. **Test Persistence**
+   - Note the current recommendation count
+   - Redeploy your service (Manual Deploy → Deploy latest commit)
+   - After deployment, check dashboard again
+   - **Count should remain the same** ✅
 
 ---
 
-## Testing Locally
+## Troubleshooting
 
-Local development uses SQLite and works perfectly:
+### "Connection to database failed"
+
+**Solution:** Check DATABASE_URL is set correctly:
+- Go to Web Service → Environment
+- Verify `DATABASE_URL` exists and starts with `postgresql://`
+- Make sure you used **Internal Database URL**, not External
+
+### "Database tables not found"
+
+**Solution:** Tables are created automatically on startup. Check logs:
+- Go to Web Service → Logs
+- Look for `"Database tables created successfully"`
+- If you see errors, the app will retry on next request
+
+### "Still showing 0 recommendations after migration"
+
+**Solution:** Data doesn't migrate automatically from old SQLite:
+- Old SQLite data is lost (was ephemeral anyway)
+- Start fresh by generating new recommendations
+- System will begin learning from scratch
+
+### Want to test PostgreSQL locally?
+
 ```bash
-# Start local server
-python -m uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
+# Get your DATABASE_URL from Render
+export DATABASE_URL="postgresql://user:pass@host/db"
 
-# Generate recommendations
-curl -X POST http://localhost:8000/api/recommendation \
-  -H "Content-Type: application/json" \
-  -d '{"days": 100, "news_days": 7}'
+# Test connection
+python scripts/test_postgres_connection.py
 
-# View dashboard
-open http://localhost:8000/dashboard
+# Run app with PostgreSQL
+python -m uvicorn src.api.app:app --reload
 ```
 
-Data persists locally in `data/advisor.db` (not tracked in git per `.gitignore`).
+---
+
+## Local Development (SQLite)
+
+Local development still uses SQLite for convenience:
+
+```bash
+# No DATABASE_URL = SQLite automatically
+python -m uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
+
+# Data persists in data/advisor.db
+```
+
+The app automatically detects the environment:
+- **No DATABASE_URL** → SQLite (local development)
+- **DATABASE_URL set** → PostgreSQL (production)
+
+---
+
+## Cost
+
+✅ **Completely Free** on Render:
+- PostgreSQL: Free tier (shared CPU, 1GB storage, 97 connection limit)
+- Web Service: Free tier (512MB RAM, shared CPU)
+
+Limitations:
+- Database spins down after 90 days of inactivity
+- Suitable for hobby projects and testing
+- For production scale, consider paid tiers
+
+---
+
+## Summary
+
+After migration:
+- ✅ Data persists across deployments
+- ✅ Adaptive learning works properly
+- ✅ Weight evolution shows real trends
+- ✅ System accumulates knowledge over time
+- ✅ Dashboard shows accurate metrics
+
+**Total setup time:** ~10-15 minutes
