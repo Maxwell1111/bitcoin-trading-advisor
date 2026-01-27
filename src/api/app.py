@@ -1004,10 +1004,8 @@ async def get_adaptive_stats():
         from src.database.models import Recommendation, WeightHistory
         from src.database.session import get_db_session
 
-        # Get database session
-        db = get_db_session()
-
-        try:
+        # Get database session - use context manager for proper session handling
+        with get_db_session() as db:
             # 1. Weight Evolution Data
             weight_history = (
                 db.query(WeightHistory).order_by(WeightHistory.timestamp.desc()).limit(90).all()
@@ -1140,9 +1138,6 @@ async def get_adaptive_stats():
                 "system_status": system_status,
                 "timestamp": datetime.utcnow().isoformat(),
             }
-
-        finally:
-            db.close()
 
     except Exception as e:
         logger.error(f"Failed to get adaptive stats: {e}", exc_info=True)
