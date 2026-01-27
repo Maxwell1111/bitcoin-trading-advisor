@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from ..database import get_db_session
-from ..database.models import PriceSnapshot, Recommendation
+from ..database.models import PriceSnapshot, Recommendation, WeightHistory
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,64 @@ class HistoryTracker:
     def __init__(self):
         """Initialize HistoryTracker"""
         pass
+
+    def _ensure_daily_weight_snapshot(self, weights: dict[str, float], session) -> None:
+        """
+        Ensure a weight snapshot exists for today.
+
+        Creates a daily weight history entry if one doesn't exist for the current date.
+        This ensures the Weight Evolution chart always has up-to-date data.
+
+        Args:
+            weights: Dict with 'technical_weight', 'reddit_weight', 'news_weight'
+            session: Database session to use
+        """
+        try:
+            today = datetime.utcnow().date()
+
+            # Check if a weight entry already exists for today
+            existing_entry = (
+                session.query(WeightHistory)
+                .filter(
+                    WeightHistory.timestamp >= datetime.combine(today, datetime.min.time()),
+                    WeightHistory.timestamp < datetime.combine(today, datetime.max.time()),
+                )
+                .first()
+            )
+
+            if existing_entry:
+                # Entry already exists for today, no need to create another
+                logger.debug(f"Weight snapshot already exists for {today}")
+                return
+
+            # Get days of data (from first recommendation)
+            first_rec = session.query(Recommendation).order_by(Recommendation.timestamp).first()
+            days_of_data = 0
+            if first_rec:
+                days_of_data = (datetime.utcnow() - first_rec.timestamp).days
+
+            # Calculate Bayesian prior factor (decreases over time)
+            prior_factor = max(0.0, 0.7 - (days_of_data / 30.0) * 0.7)
+
+            # Create new weight snapshot for today
+            weight_snapshot = WeightHistory(
+                timestamp=datetime.utcnow(),
+                weight_technical=weights.get("technical_weight", 0.6),
+                weight_reddit=weights.get("reddit_weight", 0.25),
+                weight_news=weights.get("news_weight", 0.15),
+                trigger_reason="daily_snapshot",
+                days_of_data=days_of_data,
+                prior_weight_factor=prior_factor,
+            )
+            session.add(weight_snapshot)
+            logger.info(
+                f"Created daily weight snapshot: tech={weight_snapshot.weight_technical:.2%}, "
+                f"reddit={weight_snapshot.weight_reddit:.2%}, news={weight_snapshot.weight_news:.2%}"
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to create daily weight snapshot: {e}")
+            # Don't raise - this is a non-critical operation
 
     def _validate_recommendation_data(self, rec_data: dict[str, Any], current_price: float):
         """
@@ -171,6 +229,9 @@ class HistoryTracker:
                     time_offset_hours=0.0,
                 )
                 session.add(initial_snapshot)
+
+                # Ensure daily weight snapshot exists
+                self._ensure_daily_weight_snapshot(weights, session)
 
                 session.commit()
 
