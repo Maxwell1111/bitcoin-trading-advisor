@@ -95,21 +95,36 @@ class RecommendationEngine:
             )
 
         # --- Priority 1: Contrarian Logic Gate ---
+        # Only trigger contrarian alerts with sufficient data quality
+        reddit_count = reddit_sentiment_analysis.get("article_count", 0)
+        news_count = news_sentiment_analysis.get("article_count", 0)
+        total_sentiment_data = reddit_count + news_count
+
         reddit_score_raw = reddit_sentiment_analysis["average_compound"]
-        logging.info(f"Checking contrarian logic with Reddit score: {reddit_score_raw:.3f}")
-        if reddit_score_raw > 0.85:
-            logging.warning("!! CONTRARIAN ALERT: Extreme Euphoria detected !!")
-            return self._create_contrarian_alert(
-                "CONTRARIAN ALERT: Market sentiment is unsustainably bullish. Historically, this precedes a pullback. Consider a cautious stance.",
-                "Extreme Euphoria",
-                current_price,
-            )
-        if reddit_score_raw < 0.15:
-            logging.warning("!! CONTRARIAN ALERT: Extreme Fear detected !!")
-            return self._create_contrarian_alert(
-                "CONTRARIAN ALERT: Maximum fear detected. Potential local bottom. Historically, this is an accumulation zone.",
-                "Extreme Fear",
-                current_price,
+        logging.info(
+            f"Checking contrarian logic with Reddit score: {reddit_score_raw:.3f}, "
+            f"data: {reddit_count} reddit + {news_count} news = {total_sentiment_data} total"
+        )
+
+        # Require minimum data quality for contrarian alerts (at least 10 sentiment sources)
+        if total_sentiment_data >= 10:
+            if reddit_score_raw > 0.85:
+                logging.warning("!! CONTRARIAN ALERT: Extreme Euphoria detected !!")
+                return self._create_contrarian_alert(
+                    "CONTRARIAN ALERT: Market sentiment is unsustainably bullish. Historically, this precedes a pullback. Consider a cautious stance.",
+                    "Extreme Euphoria",
+                    current_price,
+                )
+            if reddit_score_raw < 0.15:
+                logging.warning("!! CONTRARIAN ALERT: Extreme Fear detected !!")
+                return self._create_contrarian_alert(
+                    "CONTRARIAN ALERT: Maximum fear detected. Potential local bottom. Historically, this is an accumulation zone.",
+                    "Extreme Fear",
+                    current_price,
+                )
+        else:
+            logging.info(
+                f"Insufficient sentiment data ({total_sentiment_data} sources) - skipping contrarian logic"
             )
 
         # --- Priority 2: Divergence Check ---
