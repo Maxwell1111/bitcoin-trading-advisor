@@ -254,8 +254,11 @@ class RedditFetcher:
     def __init__(self):
         """Initialize Reddit fetcher"""
         self.base_url = "https://www.reddit.com"
-        # User agent required by Reddit API
-        self.headers = {"User-Agent": "BitcoinTradingAdvisor/1.0"}
+        # User agent required by Reddit API - use more realistic format for production
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (compatible; BitcoinTradingAdvisor/2.0; +https://github.com/bitcoin-advisor)",
+            "Accept": "application/json",
+        }
 
     def fetch_posts(
         self, subreddits: list[str] = None, limit: int = 50, time_filter: str = "day"
@@ -285,12 +288,29 @@ class RedditFetcher:
                     "t": time_filter,
                 }
 
-                response = requests.get(url, headers=self.headers, params=params, timeout=10)
-                response.raise_for_status()
+                response = requests.get(url, headers=self.headers, params=params, timeout=15)
+
+                # Check for rate limiting or errors
+                if response.status_code == 429:
+                    print(f"Reddit rate limit hit for r/{subreddit}, waiting...")
+                    time.sleep(5)
+                    continue
+                if response.status_code != 200:
+                    print(
+                        f"Reddit returned status {response.status_code} for r/{subreddit}: {response.text[:200]}"
+                    )
+                    continue
+
                 data = response.json()
 
                 # Parse posts
-                for post in data.get("data", {}).get("children", []):
+                children = data.get("data", {}).get("children", [])
+                if not children:
+                    print(f"No posts returned from r/{subreddit}")
+                    continue
+
+                posts_found = 0
+                for post in children:
                     post_data = post.get("data", {})
 
                     # Only include posts that mention bitcoin/btc/crypto
@@ -316,12 +336,21 @@ class RedditFetcher:
                                 "num_comments": post_data.get("num_comments", 0),
                             }
                         )
+                        posts_found += 1
+
+                print(f"Fetched {posts_found} relevant posts from r/{subreddit}")
 
                 # Respect Reddit rate limits
-                time.sleep(1)
+                time.sleep(2)  # Increased delay for production reliability
 
+            except requests.exceptions.Timeout:
+                print(f"Timeout fetching from r/{subreddit} - skipping")
+                continue
+            except requests.exceptions.RequestException as e:
+                print(f"Network error fetching from r/{subreddit}: {type(e).__name__}: {e}")
+                continue
             except Exception as e:
-                print(f"Warning: Error fetching from r/{subreddit}: {e}")
+                print(f"Unexpected error fetching from r/{subreddit}: {type(e).__name__}: {e}")
                 continue
 
         # Sort by score (upvotes) to get most popular posts
